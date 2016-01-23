@@ -1,0 +1,49 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "David Lenk",
+    "longName": "Lost Contact: Moonbase",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/bg3.png",
+                "name": "MSG_BG3_SW",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "images/bg2.png",
+                "name": "MSG_BG2_SW",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "images/bg1.png",
+                "name": "MSG_BG1_SW",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "images/icon2.png",
+                "menuIcon": true,
+                "name": "ICON",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            }
+        ]
+    },
+    "sdkVersion": "3",
+    "shortName": "Hello...",
+    "targetPlatforms": [
+        "aplite",
+        "basalt"
+    ],
+    "uuid": "1d6c7f01-d948-42a6-aa4e-b2084210ebbc",
+    "versionLabel": "0.9",
+    "watchapp": {
+        "watchface": false
+    }
+}
