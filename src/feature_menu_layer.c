@@ -608,6 +608,7 @@ static void game_action(void *data){
 			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "set wakeup  ANTW - id: %d", settings.wakeup_reason);}
 		break;
 		case DIE_AKKU:
+			wakeup_cancel_all();
 			//ToDo  save achievment 1. Todesfolge gefunden
 			setNextStep(step->next);
 		break;
@@ -1278,10 +1279,10 @@ static void info_window_load(Window *window) {
 	//graphics_draw_bitmap_in_rect(ctx, s_msg_background, bounds);
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", rand() %3 );}
 	switch(rand() %3){
-		case 0: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1_SW); 	break;
-		case 1: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG2_SW); 	break;
-		case 2: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG3_SW); 	break;
-		default: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1_SW); 	break;
+		case 0: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
+		case 1: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG2); 	break;
+		case 2: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG3); 	break;
+		default: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
 	}
 	
   s_background_layer = bitmap_layer_create(layer_get_frame(window_layer));

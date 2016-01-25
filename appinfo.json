@@ -10,19 +10,19 @@
         "media": [
             {
                 "file": "images/bg3.png",
-                "name": "MSG_BG3_SW",
+                "name": "MSG_BG3",
                 "targetPlatforms": null,
                 "type": "bitmap"
             },
             {
                 "file": "images/bg2.png",
-                "name": "MSG_BG2_SW",
+                "name": "MSG_BG2",
                 "targetPlatforms": null,
                 "type": "bitmap"
             },
             {
                 "file": "images/bg1.png",
-                "name": "MSG_BG1_SW",
+                "name": "MSG_BG1",
                 "targetPlatforms": null,
                 "type": "bitmap"
             },
