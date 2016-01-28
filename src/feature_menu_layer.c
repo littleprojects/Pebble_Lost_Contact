@@ -55,14 +55,21 @@ static bool debug = false;
 
 #define SETTINGS_KEY 1
 
+#define welcome_text_color				GColorBlack
+#define welcome_bg_color					PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
+
 #define timeline_text_color 			GColorBlack
 #define timeline_box_border_color GColorBlack
 #define timeline_box_fill_color   PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorWhite)
+
 // Blue-Black OxfordBlue-White
 #define settings_text_color				PBL_IF_COLOR_ELSE(GColorBlack, GColorBlack)
 #define settings_bg_color					PBL_IF_COLOR_ELSE(GColorGreen, GColorWhite)
 #define settings_text_color_hi		PBL_IF_COLOR_ELSE(GColorWhite, GColorWhite)
 #define settings_bg_color_hi			PBL_IF_COLOR_ELSE(GColorDarkGreen, GColorBlack)
+
+#define credits_text_color				GColorBlack
+#define credits_bg_color					PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
 
 
 
@@ -1223,16 +1230,22 @@ static void welc_window_load(Window *window) {
 		.click_config_provider = welc_click_config_provider
 	});
 	
+	window_set_background_color(s_welc_window, welcome_bg_color);
+	
 	//draw Layer inputs	
 	s_welc_text1 = text_layer_create(GRect(0, 0, max_bounds.size.w, 100));
 	text_layer_set_text(s_welc_text1, g.name);	//Headline
   text_layer_set_font(s_welc_text1, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_background_color(s_welc_text1, GColorClear);
+	text_layer_set_text_color(s_welc_text1, welcome_text_color);
 	text_layer_set_text_alignment(s_welc_text1, GTextAlignmentCenter);	
 
 	s_welc_text2 = text_layer_create(GRect(5,60, max_bounds.size.w-10, max_bounds.size.h));
 	text_layer_set_text(s_welc_text2, g.desc);			//description text
   text_layer_set_font(s_welc_text2, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
 	text_layer_set_text_alignment(s_welc_text2, GTextAlignmentLeft);	
+	text_layer_set_background_color(s_welc_text2, GColorClear);
+	text_layer_set_text_color(s_welc_text1, welcome_text_color);
 	GSize size = text_layer_get_content_size(s_welc_text2);
 	text_layer_set_size(s_welc_text1, GSize(144,size.h+10));
 	
@@ -1355,16 +1368,22 @@ static void cred_window_load(Window *window) {
 		.click_config_provider = cred_click_config_provider
 	});
 	
+	window_set_background_color(s_cred_window, credits_bg_color);
+	
 	//draw Layer inputs	
 	s_welc_text1 = text_layer_create(GRect(0, 0, max_bounds.size.w, 100));
 	text_layer_set_text(s_welc_text1, g.name);	//Headline
   text_layer_set_font(s_welc_text1, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 	text_layer_set_text_alignment(s_welc_text1, GTextAlignmentCenter);	
+	text_layer_set_background_color(s_welc_text1, GColorClear);
+	text_layer_set_text_color(s_welc_text1, credits_text_color);
 
 	s_welc_text2 = text_layer_create(GRect(5,60, max_bounds.size.w-20, max_bounds.size.h));
 	text_layer_set_text(s_welc_text2, g.credits);			//description text
   text_layer_set_font(s_welc_text2, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
 	text_layer_set_text_alignment(s_welc_text2, GTextAlignmentLeft);	
+	text_layer_set_background_color(s_welc_text2, GColorClear);
+	text_layer_set_text_color(s_welc_text2, credits_text_color);
 	GSize size = text_layer_get_content_size(s_welc_text2);
 	text_layer_set_size(s_welc_text1, GSize(144,size.h+10));
 	
