@@ -110,7 +110,7 @@ typedef struct {
 GAME_FLOW g = {
 	.name = "Lost Contact\nMoonbase",
 	.desc =	"Rette Tom.\n\nTom ist in Schwierigkeiten und nur du kannst ihm helfen.\n\nDu bist die letzte Verbindung die er hat. Helf Tom bei wichtigen Entscheidungen und sicher so sein Überleben.\n",
-	.step_count = 170,						//WICHTIG - step_count immer aktuell halten
+	.step_count = 265,						//WICHTIG - step_count immer aktuell halten
 	.step = {
 //ID, nextID, Delay, Type, Text, Special ID 
 		{  0,   1,  1, INFO, "[Signal gefunden]"},
@@ -321,14 +321,143 @@ GAME_FLOW g = {
 		{ 212,213,  1, TEXT, "Aber dann hat man einen Reaktor eingesetzt."},
 		{ 213,214,  1, TEXT, "Hmm. Ob der Reaktor am Stromausfall schuld ist."},
 		{ 214,215,  1, TEXT, "Nein. Der Sender piepst jetzt schneller."},	
-		{ 214,215,  1, TEXT, "Die Akkuanzeige ist rot."},
+		{ 214,220,  1, TEXT, "Die Akkuanzeige ist jetzt rot."},
 //TODO:										//163
-		{ 210,501,  0, ANTW, "Schließ das USB Kabel direkt an."},
-		{ 210,500,  0, ANTW, "Such ein Netzteil."},
+		{ 220,221,  0, ANTW, "Schließ das Ladekabel an."},
+		{ 220,225,  0, ANTW, "Such ein Netzteil."},
+			
+		{ 221,222,  1, TEXT, "Das geht nicht."},
+		{ 222,223,  1, TEXT, "Man braucht ein besonderen Stecker."},
+		{ 223,224,  1, TEXT, "Ich such mal ein Gerät mit so einem Stecker."},
+		{ 224,230,  5, INFO, "Tom ist beschäftig."},	
+		
+		{ 225,226,  1, TEXT, "Schon dabei..."},	
+		{ 226,227,  5, INFO, "Tom ist beschäftigt."},
+			
+		{ 230,231,  1, TEXT, "Hey ich hab was:"},
+		{ 231,232,  1, TEXT, "Sieht aus wie ein multi Ladegerät."},
+		{ 232,233,  1, TEXT, "Man kann da ne menge dran einstellen."},
+		{ 233,240,  1, TEXT, "Und Klemmen um Kabel anzuschließen."},
+//Ladegerät gefunden			175
+		{ 240,241,  0, ANTW, "Super!"},
+		{ 240,241,  0, ANTW, "Perfekt."},	
+			
+		{ 241,242,  1, TEXT, "An dem Ding kann man eine Menge einstellen."},
+		{ 242,243,  1, TEXT, "Der erste Schalter ist für:"},
+		{ 243,244,  1, TEXT, "Gleichspannung oder Wechselspannung."},
+		{ 244,245,  1, TEXT, "Was auch immer das ist..."},
+		{ 245,246,  1, TEXT, "Es klingt ungesund."},
+		{ 246,250,  1, TEXT, "Was soll ich für USB einstellen?"},
+			
+		{ 250,301,  0, ANTW, "Wechselspannung"},	// --> Fail
+		{ 250,251,  0, ANTW, "Gleichspannung"},
+//Spannungs typ							185
+		{ 251,252,  1, TEXT, "Ok, hab ich eingestellt."},
+		{ 252,253,  1, TEXT, "Hier ist noch ein Regler für V."},
+		{ 253,254,  1, TEXT, "Der steht bei ca 9."},
+		{ 254,260,  1, TEXT, "Soll ich den so lassen?"},
+			
+		{ 260,261,  0, ANTW, "Dreh den auf 5."},
+		{ 260,312,  0, ANTW, "Dreh den auf 12."},		// --> Fail
+//Spannung									191
+		{ 261,263,  1, TEXT, "So wenig?"},
+		//{ 262,263,  1, TEXT, "Mehr ist immer gut."},
+		{ 263,264,  1, TEXT, "Gut, du scheinst dich ja auszukennen"},
+		{ 264,265,  1, TEXT, "Sollte so passen."},
+		{ 265,266,  1, TEXT, "Jetzt noch das USB Kabel zerschneiden..."},
+		{ 266,270,  5, INFO, "Tom ist beschäftigt."},
+//Kabel											196
+		{ 270,271,  1, TEXT, "Ohh. Hier sind vier Kabel."},
+		{ 271,272,  1, TEXT, "Ein paar ist Weiß und Grün."},
+		{ 272,273,  1, TEXT, "Das andere Rot und Schwarz."},
+		{ 273,280,  1, TEXT, "Welches muss ich denn Anschließen?"},
+			
+		{ 280,284,  0, ANTW, "Rot und Schwarz."},
+		{ 280,281,  0, ANTW, "Weiß und Grün."},	 
+//Kabelfarbe								201			
+		{ 281,282,  1, TEXT, "Hey, warte."},
+		{ 282,283,  1, TEXT, "Die Farben an den Klemmen sind Rot und Schwarz."},
+		{ 283,285,  1, TEXT, "Ich schließ das andere an."},
+			
+		{ 284,285,  1, TEXT, "Hey, die Farben an den Klemmen hab die gleiche Farbe."},
+		{ 285,286,  1, TEXT, "Also Rotes Kabel an Rot."},
+		{ 286,287,  1, TEXT, "Und Schwarz an Schwarze Klemme."},
+		{ 287,290,  1, TEXT, "Kabel ist dran."},	
+			
+		{ 290,294,  0, ANTW, "Einschalten."},
+		{ 290,291,  0, ANTW, "Viel Glück."},	 //	--> Fail
+			
+		{ 291,292,  1, TEXT, "Was?"},
+		{ 292,293,  1, TEXT, "Mach mir jetzt keine Angst."},
+		{ 293,294,  1, TEXT, "Ich dachte du weißt was du...."},
+		{ 294,295,  1, TEXT, "Okay."},
+		{ 295,296,  1, TEXT, "Wünsch mir Glü..."},
+			
+		{ 296,297,  1, INFO, "[Signal schwach]"},
+		{ 297,000,  1, INFO, "[Signal verloren]"},  //--> linken akku überlebt	
+//Akku Bad way							217
+			
+		{ 301,302,  1, TEXT, "Ok, hab ich eingestellt."},
+		{ 302,303,  1, TEXT, "Hier ist noch ein Regler für V."},
+		{ 303,304,  1, TEXT, "Der steht bei ca 9."},
+		{ 304,310,  1, TEXT, "Soll ich den so lassen?"},
+			
+		{ 310,311,  0, ANTW, "Dreh den auf 5."},
+		{ 310,312,  0, ANTW, "Dreh den auf 12."},		// --> Fail
+//Spannung Bad way					223
+		{ 311,313,  1, TEXT, "So wenig?"},
+		{ 312,313,  1, TEXT, "Mehr ist immer gut."},
+		{ 313,314,  1, TEXT, "Gut, du scheinst dich ja auszukennen"},
+		{ 314,315,  1, TEXT, "Sollte so passen."},
+		{ 315,316,  1, TEXT, "Jetzt noch das USB Kabel zerschneiden..."},
+		{ 316,320,  5, INFO, "Tom ist beschäftigt."},
+//Kabel bad way							229
+		{ 320,321,  1, TEXT, "Ohh. Hier sind vier Kabel."},
+		{ 321,322,  1, TEXT, "Ein paar ist Weiß und Grün."},
+		{ 322,323,  1, TEXT, "Das andere Rot und Schwarz."},
+		{ 323,330,  1, TEXT, "Welches muss ich denn Anschließen?"},
+			
+		{ 330,334,  0, ANTW, "Rot und Schwarz."},
+		{ 330,331,  0, ANTW, "Weiß und Grün."},	 
+//Kabelfarbe								235
+		{ 331,332,  1, TEXT, "Hey, warte."},
+		{ 332,333,  1, TEXT, "Die Farben an den Klemmen sind Rot und Schwarz."},
+		{ 333,335,  1, TEXT, "Ich schließ das andere an."},
+			
+		{ 334,335,  1, TEXT, "Hey, die Farben an den Klemmen hab die gleiche Farbe."},
+		{ 335,336,  1, TEXT, "Also Rotes Kabel an Rot."},
+		{ 336,337,  1, TEXT, "Und Schwarz an Schwarze Klemme."},
+		{ 337,340,  1, TEXT, "Kabel ist dran."},	
+			
+		{ 340,344,  0, ANTW, "Einschalten."},
+		{ 340,341,  0, ANTW, "Viel Glück."},	 //	--> Fail
+			
+		{ 341,342,  1, TEXT, "Was?"},
+		{ 342,343,  1, TEXT, "Mach mir jetzt keine Angst."},
+		{ 343,344,  1, TEXT, "Ich dachte du weißt was du...."},
+		{ 344,345,  1, TEXT, "Okay."},
+		{ 345,346,  1, TEXT, "Wünsch mir Glü..."},
+			
+		{ 346,347,  1, INFO, "[Signal schwach]"},
+		{ 347,1001, 1, INFO, "[Signal verloren]"},  //--> linken die Akku			
+			
+//Akku überlebt							251
+		{ 350,351,  1, INFO, "[Signal gefunden]"},
+		{ 351,352,  1, INFO, "[Verbinde]"},
+		{ 352,353,  1, INFO, "[Empfange Daten]"},
+		{ 353,354,  1, TEXT, "Das war aber knapp."},
+		{ 354,355,  1, TEXT, "Der Sender ist kurz ausgegangen."},
+		{ 355,356,  1, TEXT, "Ich hatte echt schon Panik."},
+		{ 356,357,  1, TEXT, "Denn lass ich jetzt mal Aufladen."},
+		{ 357,358,  1, TEXT, "Ich meld mich Wenn der Sender voll ist."},
+		{ 358,500,60*4, INFO, "Tom ist beschäftigt."},
+			
+			
+//end of Text								260
 			
 		{ 500,501,  1, TEXT, "[Text alle]"},
 		{ 501,1100, 1, INFO, "ENDE"},
-																			//167
+																			//262
 			
 		//{  74, 76,  1, TEXT, "Hab ich schon erwähnt: Es ist toten still hier.", 0},
 //Die Akku
