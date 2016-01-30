@@ -50,6 +50,8 @@ PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
 */
 
 static bool debug = false;
+static bool StepCheck = false; 		//check all steps to have a next step.
+
 #define MAX_TEXT 20
 #define MAX_ANTW 5
 
@@ -181,7 +183,7 @@ GAME_FLOW g = {
 		{  71, 72,  1, TEXT, "OK. Gute Idee."},
 		{  72, 73,  1, TEXT, "Es ist nur so verdamt dunkel."},
 		{  73, 74,  1, TEXT, "Man kann gar nicht richtig sehen."},
-		{  74, 76,  1, TEXT, "Warte, hier war doch irgendwo eine Taschenlampe."},
+		{  74, 75,  1, TEXT, "Warte, hier war doch irgendwo eine Taschenlampe."},
 		{  75, 81, 10, INFO, "Tom ist beschäftigt."},
 																						//57
 		{  81, 82,  1, TEXT, "Hey, da bin ich wieder."},
@@ -230,10 +232,10 @@ GAME_FLOW g = {
 //Akku ladegerät												//92
 		{ 121,122,  1, TEXT, "Bin schon unterwegs."},
 		{ 122,123,  1, TEXT, "Geb mir ein paar Minuten."},
-		{ 123,124, 30, INFO, "Tom ist beschäftigt."},
+		{ 123,125, 30, INFO, "Tom ist beschäftigt."},
 			
-		{ 121,122,  1, TEXT, "Hey, ich hab ein Netzteil mit USB Kabel gefunden."},
-		{ 122,130,  1, TEXT, "Aber das bringt mir nichts ohne Strom."}, //95
+		{ 125,126,  1, TEXT, "Hey, ich hab ein USB Ladekabel gefunden."},
+		{ 126,130,  1, TEXT, "Aber das bringt mir nichts ohne Strom."}, //95
 		
 		{ 130,131,  0, ANTW, "Gibt es Baterien?"},
 		{ 130,133,  0, ANTW, "Habt ihr Solarzellen?"},		
@@ -321,7 +323,7 @@ GAME_FLOW g = {
 		{ 212,213,  1, TEXT, "Aber dann hat man einen Reaktor eingesetzt."},
 		{ 213,214,  1, TEXT, "Hmm. Ob der Reaktor am Stromausfall schuld ist."},
 		{ 214,215,  1, TEXT, "Nein. Der Sender piepst jetzt schneller."},	
-		{ 214,220,  1, TEXT, "Die Akkuanzeige ist jetzt rot."},
+		{ 215,220,  1, TEXT, "Die Akkuanzeige ist jetzt rot."},
 //TODO:										//163
 		{ 220,221,  0, ANTW, "Schließ das Ladekabel an."},
 		{ 220,225,  0, ANTW, "Such ein Netzteil."},
@@ -332,7 +334,7 @@ GAME_FLOW g = {
 		{ 224,230,  5, INFO, "Tom ist beschäftig."},	
 		
 		{ 225,226,  1, TEXT, "Schon dabei..."},	
-		{ 226,227,  5, INFO, "Tom ist beschäftigt."},
+		{ 226,230,  5, INFO, "Tom ist beschäftigt."},
 			
 		{ 230,231,  1, TEXT, "Hey ich hab was:"},
 		{ 231,232,  1, TEXT, "Sieht aus wie ein multi Ladegerät."},
@@ -450,8 +452,26 @@ GAME_FLOW g = {
 		{ 355,356,  1, TEXT, "Ich hatte echt schon Panik."},
 		{ 356,357,  1, TEXT, "Denn lass ich jetzt mal Aufladen."},
 		{ 357,358,  1, TEXT, "Ich meld mich Wenn der Sender voll ist."},
-		{ 358,500,60*4, INFO, "Tom ist beschäftigt."},
+		{ 358,500,60*4, INFO, "Tom ist beschäftigt."},		//4h
+//Fenster										260
+			/*
+		{ 360,361,  1, TEXT, "Hallo."},
+		{ 361,370,  1, TEXT, "Bist du da?"},
 			
+		{ 370,371,  0, ANTW, "Ja."},
+		{ 370,372,  0, ANTW, "Was ist los?"},
+		
+		{ 371,372,  1, TEXT, "Gut."},
+		{ 372,373,  1, TEXT, "Ich schau "},
+			
+		*/
+		
+			//kann aus dem Fenster schauen
+			//und die Erde sehen
+			//sie ist wunderschön.
+			//hab bei Sicherheitsunterweisung geschlafen (Geheimniss)
+			
+			//Moonbase A  weil Moonbase1 von der ESA ist und die NASA nicht zweiter sein wollte ;) 
 			
 //end of Text								260
 			
@@ -1544,9 +1564,29 @@ static bool is_step_real(int id){
 			out = true;
 		}
 	}
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "check Step id: %d -> %d", id, out);}
+	//if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "check Step id: %d -> %d", id, out);}
 	
 	return out;
+}
+
+void checkSteps(){
+	//const int i = g.step_count;
+	//int stepID[200] = {-1};
+	//bool nextID[200] = {false};
+	//bool call[200]	 = {false};
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "check Steps start");
+	
+	for(int i = 0; i < g.step_count; i++){
+		//stepID[i] = g.step[i].id;
+		
+		//nextID[i] = 
+		if(!is_step_real(g.step[i].next)){
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "check Step id: %d -> %d", g.step[i].id, g.step[i].next);
+		}		
+	}
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "check Steps End");	
 }
 
 static void init() {
@@ -1557,6 +1597,8 @@ static void init() {
 	
 	//load data
 	load_persistent_settings();	
+	
+	if(StepCheck){checkSteps();}
 	
 	//Fehlerabfang falls die Pointer nicht mehr stimmen
 	if(false){
