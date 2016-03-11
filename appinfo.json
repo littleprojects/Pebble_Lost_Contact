@@ -4,6 +4,7 @@
         ""
     ],
     "companyName": "David Lenk",
+    "enableMultiJS": false,
     "longName": "Lost Contact: Moonbase",
     "projectType": "native",
     "resources": {
