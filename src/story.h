@@ -31,6 +31,8 @@ typedef struct {
 typedef struct {
 	char 			*name;
 	char 			*desc;
+	char			*text_wait;
+	char 			*text_msg;
 	uint16_t 	step_count;
 	char			*step_count_text;
 	char			*version;

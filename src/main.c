@@ -1,5 +1,8 @@
 #include "pebble.h"
 #include "main.h"
+#include "story.h"
+#include "save.h"
+
 
 /* Color / BW
 #ifdef PBL_COLOR
@@ -14,23 +17,21 @@
 
 #ifdef PBL_SDK_2
 PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
-*/
+*/ //colors/hardware switch
 
 /*
-	delete the game before you reinstall it
-	- after reinstall the pointer of the savegame points to nowhere and the game crash
-	- same the game with the game ids -> needs more resources to find the Steps
 	
 	Idee: Gewählte Anwort mit in Timeline aufnehmen
 			*	ältere Elemente immer löschen (First in, first out que)
 			* que in Add Text möglich (clear Menu anpassen/ nur noch antw count = 0)(selced index anpassen --)
 				
 	TODO:
+		- achievements
+	
 	Save 
 		- history
 		- game stats
-			* Stats
-			* achievements
+		* achievements
 	Settings
 	  - Go back (History)	
 	
@@ -44,19 +45,15 @@ PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
 	Welcome Card:
 		- add action bar. (up/down/ play)
 		
-	Dont save the Pointer -> save the IDs
-		- pointer link to an other Steps after a reinstall/update
-		- IDs are more persitent
-		- open (IDs to Pointer) -> in Game work with pointer -> close (save the IDs)
-		
 	overflow protection: (TEXT MSG & Responses)
 		if msg_cout = max_msg_count
-			delete 1. and put all array(x-1)
-*/
+			delete the first and put all array(x-1)
+*/ //TODOs
 
 static bool debug = false;
 static bool StepCheck = false; 		//check all steps to have a next step.
 
+// more game settings are in the main.h
 
 //global Layer
 static Layer 			*window_layer;
@@ -85,32 +82,30 @@ static AppTimer 	*s_timer;
 static GBitmap 		*s_background_image;
 static BitmapLayer *s_background_layer;
 
+
 //settings struct
 typedef struct {
   //current game 
-	STEP *active_text[MAX_TEXT];
-	STEP *active_antw[MAX_ANTW];
-	STEP *next_step;
-	int   active_text_count;
+	STEP *active_text[MAX_TEXT];	//pointer of the Text Steps
+	STEP *active_antw[MAX_ANTW];	//pointer of the antw Steps
+	STEP *next_step;							//pointer of the next Step
+	int   active_text_count;			
   int   active_antw_count;
 	//int 	current_section;
-	int	wakeup_reason;					//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer)
-	MenuIndex	menu_index;			//save the current position in the timeline
+	int	wakeup_reason;						//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer)
+	MenuIndex	menu_index;					//save the current position in the timeline
+	
 	//settings	
-	bool vibe;
+	bool vibe;										
 	bool rapid_mode;
 	bool sleep_time;
 	
 	//history
-	int history[MAX_MILESTONE];
-	//int 	history_count;
-	/*
-	ToDo:
-		- game stats
-			* Stats
-			* achievements
-	*/	
+	int history[MAX_MILESTONE];				//ID of the milestones
+	int achievement[MAX_ACHIEVEMENT];	//ID of the Achievments
+	
 } SETTINGS;
+
 
 //set defaults
 SETTINGS settings = {
@@ -130,7 +125,8 @@ SETTINGS settings = {
 	.sleep_time = true,
 	
 	//history
-	.history = {-1}
+	.history = {0},
+	.achievement = {0}
 	//.history_count = 0
 };
 
@@ -143,34 +139,23 @@ static GPath *s_path_2;
 static GPath *s_path_3;
 static GPath *s_path_4;
 
-//-------------------------------- save - load settings -------------------
 
-//TODO: settings durch savegame ersetzen
-void save_persistent_settings() {
-  //if(settings.active_antw_count > 0){
-		//settings.menu_index = menu_layer_get_selected_index(s_menu_layer);	
-	//}	
-	//settings_to_savegame;
-	//save data
-	persist_write_data(SETTINGS_KEY, &settings, sizeof(settings));
-}
-
-//TODO: settings durch savegame ersetzen
-void load_persistent_settings() {  
-  if (persist_exists(SETTINGS_KEY) && persist_get_size(SETTINGS_KEY) == (int)sizeof(settings)){
-		//load data
-		persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));	
-		
-		//savegame_to_settings;
-	}else{
-		//write the defaults to settings
-		//savegame_to_settings; 
-		//save the first time
-		//save_savegame();
-	}
-}
 
 // ------------------------------------- Game start ------------------------
+
+static STEP * findStep(int id){	
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "find Step with Id: %d", id);}
+	STEP * out = NULL;
+	for(int x = 0; x < g.step_count; x++){
+		if(id == g.step[x].id){
+			out = &g.step[x];
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Step FOUND at: %d", x);}
+			break;
+		}
+	}
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "NOT FOUND");
+	return out;
+}
 
 static void setWakeup(TYPE reason, int min){
 	wakeup_cancel_all();
@@ -222,7 +207,7 @@ static void setWakeup(TYPE reason, int min){
 	settings.wakeup_reason = reason;	//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer
 
 	//save settings
-	save_persistent_settings();
+	//save_settings();
 }
 
 static void setMilestone(STEP *step){
@@ -238,7 +223,7 @@ static void setMilestone(STEP *step){
 		}
 	}
 	*/
-}
+} //TODO
 
 static void setNextStep(int id){
 	//int out = -1;	
@@ -246,7 +231,9 @@ static void setNextStep(int id){
 		id = 1;
 	}
 	
+	/*
 	settings.next_step = NULL;
+	// old find Step
 	for(int x = 0; x < g.step_count; x++){
 		if(id == g.step[x].id){
 			//out = g.step[x].id;
@@ -254,14 +241,22 @@ static void setNextStep(int id){
 			break;
 		}
 	}
+	*/
+	
+	settings.next_step = findStep(id);
 }
 
 static void addText(STEP *step){
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText mit id: %d Textcount: %d", step->id, settings.active_text_count);
 	if(settings.active_text_count+1 < MAX_TEXT){
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText - to array");
 		settings.active_text[settings.active_text_count] = step;
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText - count++");
 		settings.active_text_count++;
 		//MSG counter erhöhen für game stats
 		if(settings.active_text_count < 3){
+			//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText - select++");
+			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu index row %d section %d", settings.menu_index.row, settings.menu_index.section);
 			menu_layer_set_selected_index(s_menu_layer, MenuIndex(0,settings.active_text_count), MenuRowAlignCenter, true);
 		}
 	}else{
@@ -269,7 +264,7 @@ static void addText(STEP *step){
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: to many Text Messages in the Menu");}
 		//erste Nachrichten löschen (Like a fifo) + Menu_select--
 	}
-	
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText end - update menu_layer");
 	//update menu
 	menu_layer_reload_data(s_menu_layer);
 }
@@ -306,6 +301,139 @@ static void clear_menu(){
 	menu_layer_set_selected_index(s_menu_layer, MenuIndex(0,0), MenuRowAlignCenter, false);
 	//menu_layer_reload_data(s_menu_layer);	
 }
+
+//-------------------------------- save - load settings -------------------
+
+void save_settings() {	
+	
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "save savegame");
+	
+	//settings_to_savegame;
+	//savegame.active_text = {0};
+	for(int x = 0; x < MAX_TEXT; x++){
+		if(x < settings.active_text_count){
+			savegame.active_text[x] = settings.active_text[x]->id;
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "save text id: %d", savegame.active_text[x]);
+		}else{
+			savegame.active_text[x] = 0;
+		}
+	}
+	savegame.active_text_count = settings.active_text_count;
+	
+	//save antw ID
+	if(settings.active_antw_count > 0){
+		savegame.active_antw = settings.active_antw[1]->id;
+	}else{
+		savegame.active_antw = 0;
+	}
+	
+	//save milestones
+	for(int x = 0; x < MAX_MILESTONE; x++){
+		if(settings.history[x] > 0){
+			savegame.history[x] = settings.history[x];
+		}else{
+			savegame.history[x] = 0;
+		}
+	}
+	
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "save text_count: %d", savegame.active_text_count);
+	//savegame.active_antw_count = settings.active_antw_count;
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "save antw id: %d", savegame.active_antw);
+	
+	if(settings.next_step != NULL){
+		savegame.next_step 			 = settings.next_step->id;
+	}else{
+		savegame.next_step 			 = 0;
+	}
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "save next_step id: %d", savegame.next_step);
+	savegame.wakeup_reason 		 = settings.wakeup_reason;
+	
+	//gamesettings
+	savegame.vibe 			= settings.vibe;
+	savegame.rapid_mode = settings.rapid_mode;
+	savegame.sleep_time = settings.sleep_time;
+	savegame.menu_index = settings.menu_index;
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", savegame.menu_index.row, savegame.menu_index.section);
+	
+	save_savegame();	
+	
+	//save data	
+	//persist_write_data(SETTINGS_KEY, &settings, sizeof(settings)); //old methode - save settings directly
+
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVED");}
+} //TODO: save achievments
+
+void load_settings() {  
+	//old methode - reads the settings directly
+	/*
+	if (persist_exists(SETTINGS_KEY) && persist_get_size(SETTINGS_KEY) == (int)sizeof(settings)){
+		//load data
+		persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));	
+		
+		//savegame_to_settings;
+	}else{
+		//write the defaults to settings
+		//savegame_to_settings; 
+		//save the first time
+		//save_savegame();
+	}
+	*/
+	// new methode
+	
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Load savegame");
+	load_savegame();
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "loaded");
+	
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", savegame.menu_index.row, savegame.menu_index.section);
+	
+	//texte
+	settings.active_text_count = 0;
+	for(int x = 0; x < savegame.active_text_count; x++){
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "load Text #%d mit ID: %d ", x, savegame.active_text[x]);
+		settings.active_text[x] = findStep(savegame.active_text[x]);
+		settings.active_text_count++;
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Settings %d hat id: %d", x, settings.active_text[x]->id);
+	}
+	
+	//antw
+	settings.active_antw_count = 0;
+	if(savegame.active_antw > 0){
+		//find all Antw with id
+		for(int x = 0; x < g.step_count; x++){
+			if(savegame.active_antw == g.step[x].id ){
+				if(g.step[x].type == ANTW){
+					//addAntw(&g.step[x]);
+					settings.active_antw[settings.active_antw_count] = &g.step[x];
+					settings.active_antw_count++;
+				}
+			}
+		}
+	}
+	
+	//milestones
+	for(int x = 0; x < MAX_MILESTONE; x++){
+		//if(savegame.history[x] > 0){
+			settings.history[x] = savegame.history[x];
+		//}
+	}
+	
+	//set next step	
+	if(savegame.next_step > 0){
+		setNextStep(savegame.next_step);
+	}else{
+		settings.next_step = NULL;
+	}
+	settings.wakeup_reason = savegame.wakeup_reason;
+		//gamsesettings
+	settings.vibe 			= savegame.vibe;
+	settings.rapid_mode = savegame.rapid_mode;
+	settings.sleep_time = savegame.sleep_time;
+	settings.menu_index = savegame.menu_index; 
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", settings.menu_index.row, settings.menu_index.section);
+} //TODO: load achievments
 
 // ------------------------------------ Game Main Function ----------------
 
@@ -446,7 +574,7 @@ static void menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, v
 		 	setNextStep(antw->next);
 			
 			//zwischenstand speichern
-			save_persistent_settings();
+			save_settings();
 		
 			APP_LOG(APP_LOG_LEVEL_DEBUG, "INFO: Go to next Step with ID: %d", antw->next);
 		
@@ -698,7 +826,7 @@ static void  		menu_draw_background_callback(GContext *ctx, const Layer *bg_laye
 	//gpath_draw_filled(ctx, s_current_path);
 	
 } 
-*/
+*/ //draw separator
 
 static void main_window_load(Window *window) {
   
@@ -1065,9 +1193,9 @@ static void info_window_load(Window *window) {
 	
 	//draw Layer inputs	
 	s_info_text = text_layer_create(GRect(7, 50, 137, 100));
-	text_layer_set_text(s_info_text, "Empfange neue Nachricht.");	//Headline
+	text_layer_set_text(s_info_text, g.text_msg);	//Headline incoming Msg
 	if(settings.next_step == NULL){
-		text_layer_set_text(s_info_text, "Tom wartet auf eine Antwort.");	//Headline
+		text_layer_set_text(s_info_text, g.text_wait);	//Headline waiting for answer
 	}
 	text_layer_set_background_color(s_info_text, GColorClear);
 	text_layer_set_text_color(s_info_text, GColorBlack);
@@ -1082,7 +1210,7 @@ static void info_window_load(Window *window) {
 }
 
 static void info_window_unload(Window *window) {
-	save_persistent_settings();
+	save_settings();
 	
 	bitmap_layer_destroy(s_background_layer);
   gbitmap_destroy(s_background_image);
@@ -1201,31 +1329,15 @@ static void init() {
 	//if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", rand() %3 );}
 	
 	//load data
-	load_persistent_settings();	
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD SAVEGAME");}
+	load_settings();	
 	
-	if(StepCheck){checkSteps();}
-	
-	//Fehlerabfang falls die Pointer nicht mehr stimmen
-	if(false){
-		if(settings.active_text_count > 0 && !is_step_real(settings.active_text[settings.active_text_count-1]->id)){
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "RESET: text_id is no real ID -> reset text_count");}
-			settings.active_text_count = 0;
-			//setNextStep(0);
-		}
-		if(settings.active_antw_count > 0 && !is_step_real(settings.active_antw[settings.active_antw_count-1]->id)){
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "RESET: antw_id is no real Id -> rest antw_count");}
-			settings.active_antw_count = 0;
-		}
-		if(settings.active_text_count == 0 && settings.active_antw_count == 0){
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "RESET: setNextStep = 0");}
-			setNextStep(0);
-		}
-		//TODO: clear history
-	}
-	
+	//check the steps
+	if(StepCheck){checkSteps();}	
 	
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Wakeup reason in Persistent: %d", settings.wakeup_reason);}
 	
+	//init timeline
   s_main_window = window_create();	//timeline
   window_set_window_handlers(s_main_window, (WindowHandlers) {
     .load 	= main_window_load,
@@ -1234,6 +1346,7 @@ static void init() {
   //window_stack_push(s_main_window, true);
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: timeline");}
 	
+	//init welcome
 	s_welc_window = window_create();	//welcome
   window_set_window_handlers(s_welc_window, (WindowHandlers){
     .load 	= welc_window_load,
@@ -1241,6 +1354,7 @@ static void init() {
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: welcome");}
 	
+	//init info/msg layer
 	s_info_window = window_create();	//info (incoming Msg / waiting for answer)
   window_set_window_handlers(s_info_window, (WindowHandlers){
     .load 	= info_window_load,
@@ -1248,6 +1362,7 @@ static void init() {
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: infocard");}
 	
+	//init settings menu
 	s_menu_window = window_create();	//settings_menu
   window_set_window_handlers(s_menu_window, (WindowHandlers){
     .load 	= set_window_load,
@@ -1255,7 +1370,8 @@ static void init() {
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: settings");}
 	
-	s_cred_window = window_create();	//settings_menu
+	//init credits layer
+	s_cred_window = window_create();
   window_set_window_handlers(s_cred_window, (WindowHandlers){
     .load 	= cred_window_load,
     .unload = cred_window_unload,
@@ -1281,9 +1397,9 @@ static void init() {
 
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START normal start");}
 		
-		if(settings.next_step != NULL){
+		if(settings.next_step != NULL && settings.active_text_count == 0){
 			
-			if(settings.next_step->id == 0){ 		//first run
+			if(settings.next_step->id <= 1){ 		//first run
 				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Welcome window...");}
 			
 				wakeup_cancel_all();
@@ -1304,7 +1420,7 @@ static void init() {
 }
 
 static void deinit() {
-	save_persistent_settings();
+	save_settings();
 	
   window_destroy(s_main_window);
 	window_destroy(s_welc_window);

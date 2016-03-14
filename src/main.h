@@ -1,12 +1,14 @@
+#pragma once
 #include <pebble.h>
-#include "story.h"
-#include "save.h"
+//#include "story.h"
+//#include "save.h"
 
 //---------------------------------- main settings -----------------------
 
 #define MAX_TEXT 20
 #define MAX_ANTW 5
 #define MAX_MILESTONE 10
+#define MAX_ACHIEVEMENT 10
 
 #define SETTINGS_KEY 1
 
@@ -25,8 +27,3 @@
 
 #define credits_text_color				GColorBlack
 #define credits_bg_color					PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
-
-
-
-
-//extern SETTINGS settings;

@@ -1,11 +1,15 @@
 #include <pebble.h>
+#include "main.h"
 #include "story.h"
+#include "save.h"
 
 
 // ---------------------------------- GAME DATA ----------------------------------------------------------------------
 GAME_FLOW g = {
 	.name = "Lost Contact\nMoonbase",
 	.desc =	"Rette Tom.\n\nTom ist in Schwierigkeiten und nur du kannst ihm helfen.\n\nDu bist die letzte Verbindung die er hat. Helf Tom bei wichtigen Entscheidungen und sicher so sein Überleben.\n",
+	.text_wait = "Tom wartet auf eine Antwort.",
+	.text_msg = "Empfange neue Nachricht.",
 	.step_count = 267,						//WICHTIG - step_count immer aktuell halten
 	.step = {
 //ID, nextID, Delay, Type, Text, Special ID 		if nextId = 0 -> auto countup -> nextID = ID+1
