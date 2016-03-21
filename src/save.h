@@ -20,7 +20,8 @@ typedef struct {
 	
 	//history
 	int history[MAX_MILESTONE];		//IDs of the Milesotens
-	int achievement[MAX_ACHIEVEMENT]; //IDs of the Achievments
+	bool found_deads[MAX_DEADS]; //IDs of the Achievments
+	bool found_alives[MAX_ALIVES];
 
 } __attribute__((__packed__)) SAVEGAME;
 

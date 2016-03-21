@@ -8,7 +8,8 @@
 #define MAX_TEXT 20
 #define MAX_ANTW 5
 #define MAX_MILESTONE 10
-#define MAX_ACHIEVEMENT 10
+#define MAX_DEADS 4
+#define MAX_ALIVES 1
 
 #define SETTINGS_KEY 1
 

@@ -11,13 +11,15 @@ typedef enum {
 	CLEAR,		//clear all messages
 	//SHOW_OVERLAY,
 	//HIDE_OVERLAY,
-	MILESTONE, //save this ID as a Milestone -> restart from here
-	DIE_AKKU,
-	SHOW_WON,
-	SHOW_DIE,
-	ACHIEVEMENT_X,
+	MILESTONE, 		//save this ID as a Milestone -> restart from here
+	FOUND_DEAD,		//save this ID(time) in the FOUND history
+	FOUND_ALIVE,
+	//DIE_AKKU,
+	//SHOW_WON,
+	//SHOW_DIE,
+	//ACHIEVEMENT_X,
 	//CHANGE_SETTING_X,
-	SPECIAL,
+	END,
 } TYPE;
 
 typedef struct {

@@ -375,17 +375,17 @@ GAME_FLOW g = {
 			
 //end of Text								262
 			
-		{ 500,501,  1, TEXT, "[Text alle]"},
+		{ 500,501,  1, INFO, "[Text alle]"},
 		{ 501,1100, 1, INFO, "ENDE"},
 																			//264
 			
 		//{  74, 76,  1, TEXT, "Hab ich schon erwähnt: Es ist toten still hier.", 0},
 //Die Akku
-		{1001,1002,  0, DIE_AKKU, ""},
+		{1001,1002,  0, FOUND_DEAD, ""},	//FOUND DEAD #0
 		{1002,1100,  0, INFO, "[Tom verloren]"},
 		
 		
-		{1100,   0,  1, SPECIAL, "Tom gerettet"}
+		{1100,   0,  1, END, ""}
 		
 		//WICHTIG - step_count immer aktuell halten !!! IMMER
 		

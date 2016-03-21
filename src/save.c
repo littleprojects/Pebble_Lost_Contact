@@ -10,7 +10,7 @@ SAVEGAME savegame = {
 	//.active_antw_count 	= 0,
 	.active_text 				= {0},
 	.active_antw 				= 0,
-	.next_step 					= 0,
+	.next_step 					= -1,  //-1 first run, 0 = NULL, >0 Id of the next Step
 	//.current_section 	= 0,
 	.wakeup_reason 			= -1,
 	.menu_index 				= {0,0},
@@ -22,7 +22,8 @@ SAVEGAME savegame = {
 	
 	//history
 	.history = {0},
-	.achievement = {0}
+	.found_deads = {false},
+	.found_alives = {false}
 	//.history_count = 0
 };
 

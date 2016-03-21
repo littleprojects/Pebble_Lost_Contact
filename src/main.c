@@ -50,7 +50,7 @@ PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
 			delete the first and put all array(x-1)
 */ //TODOs
 
-static bool debug = false;
+static bool debug = true;//false;
 static bool StepCheck = false; 		//check all steps to have a next step.
 
 // more game settings are in the main.h
@@ -102,8 +102,8 @@ typedef struct {
 	
 	//history
 	int history[MAX_MILESTONE];				//ID of the milestones
-	int achievement[MAX_ACHIEVEMENT];	//ID of the Achievments
-	
+	bool found_deads[MAX_DEADS];	//ID of the Achievments
+	bool found_alives[MAX_ALIVES];
 } SETTINGS;
 
 
@@ -126,7 +126,8 @@ SETTINGS settings = {
 	
 	//history
 	.history = {0},
-	.achievement = {0}
+	.found_deads = {false},
+	.found_alives = {false}
 	//.history_count = 0
 };
 
@@ -354,6 +355,13 @@ void save_settings() {
 	savegame.rapid_mode = settings.rapid_mode;
 	savegame.sleep_time = settings.sleep_time;
 	savegame.menu_index = settings.menu_index;
+	
+	for(int x = 0;x < MAX_DEADS; x++){
+		savegame.found_deads[x] = settings.found_deads[x];
+	}
+	for(int x = 0; x < MAX_ALIVES; x++){
+		savegame.found_alives[x] = settings.found_alives[x];
+	}
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", savegame.menu_index.row, savegame.menu_index.section);
 	
 	save_savegame();	
@@ -382,9 +390,9 @@ void load_settings() {
 	// new methode
 	
 	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Load savegame");
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Loading savegame from memory");
 	load_savegame();
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "loaded");
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "loaded - writing memory in cash");
 	
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", savegame.menu_index.row, savegame.menu_index.section);
 	
@@ -396,6 +404,7 @@ void load_settings() {
 		settings.active_text_count++;
 		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Settings %d hat id: %d", x, settings.active_text[x]->id);
 	}
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "TEXT COUNT: %d", settings.active_text_count);
 	
 	//antw
 	settings.active_antw_count = 0;
@@ -411,6 +420,7 @@ void load_settings() {
 			}
 		}
 	}
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "ANTW COUNT: %d", settings.active_antw_count);
 	
 	//milestones
 	for(int x = 0; x < MAX_MILESTONE; x++){
@@ -420,17 +430,29 @@ void load_settings() {
 	}
 	
 	//set next step	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "next step: %d", savegame.next_step);
 	if(savegame.next_step > 0){
 		setNextStep(savegame.next_step);
-	}else{
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "SET next Step with id: %d", savegame.next_step);
+	}else if(savegame.next_step == 0){
 		settings.next_step = NULL;
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "SET next Step = NULL");
 	}
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "NextStep ID: %d", settings.next_step->id);
+	
 	settings.wakeup_reason = savegame.wakeup_reason;
 		//gamsesettings
 	settings.vibe 			= savegame.vibe;
 	settings.rapid_mode = savegame.rapid_mode;
 	settings.sleep_time = savegame.sleep_time;
 	settings.menu_index = savegame.menu_index; 
+	
+	for(int x = 0;x < MAX_DEADS; x++){
+		settings.found_deads[x] = savegame.found_deads[x];
+	}
+	for(int x = 0; x < MAX_ALIVES; x++){
+		settings.found_alives[x] = savegame.found_alives[x];
+	}
 	
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", settings.menu_index.row, settings.menu_index.section);
 } //TODO: load achievments
@@ -467,15 +489,17 @@ static void game_action(void *data){
 		case INFO:
 			//is the same like a text
 		//break;
+//TEXT
 		case TEXT:
 
 			addText(step);
 			timer = step->delay;
 			update_menu = true;
 			setNextStep(step->next);
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "Next Step: %d", step->next); 
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free()); 
+			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Next Step: %d", step->next); 
+			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free()); 
 		break;
+//ANTW
 		case ANTW:
 
 			findAllAntw(step->id);
@@ -486,32 +510,57 @@ static void game_action(void *data){
 			setWakeup(ANTW, 30);	//set reminder
 			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "set wakeup  ANTW - id: %d", settings.wakeup_reason);}
 		break;
-		
-		case DIE_AKKU:
+//FOUND DEAD		
+		case FOUND_DEAD:
 			wakeup_cancel_all();
-			//ToDo  save achievment 1. Todesfolge gefunden
+			//add dead ID to the array
+			settings.found_deads[step->delay] = true;		
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SET FOUND_DEAD #%d", step->delay);}
+			//override the delay to go on
+			step->delay = 0;
 			setNextStep(step->next);
+			go_on = false;
+		break;
+//FOUND ALIVE		
+		case FOUND_ALIVE:
+			wakeup_cancel_all();
+			//add dead ID to the array
+			settings.found_alives[step->delay] = true;			
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SET FOUND_ALIVE #%d", step->delay);}
+			//override the delay to go on
+			step->delay = 0;
+			setNextStep(step->next);
+			//go_on = false;
 		break;
 		
+		//case DIE_AKKU:
+			//wakeup_cancel_all();
+			//ToDo  save achievment 1. Todesfolge gefunden
+			//setNextStep(step->next);
+		//break;
+//MILESTONE
 		case MILESTONE:
 			setNextStep(step->next);	//set next step and go on
 			setMilestone(step);				//save this milestone
 			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "set Milestone");}
 		break;		
+//END
+		case END:
+			
+			settings.next_step = NULL;
+			go_on = false;
 		
-		case SPECIAL:
-			
-			clear_menu();
+			//clear_menu();
 			//active_text_count = 0;
-			settings.active_text[settings.active_text_count] = step;
-			settings.active_text_count++;
+			//settings.active_text[settings.active_text_count] = step;
+			//settings.active_text_count++;
 			
-			update_menu = true;
+			//update_menu = true;
 			//go_on = false;
-			setNextStep(step->next);
+			//setNextStep(step->next);
 			
 			if(debug){ 
-				APP_LOG(APP_LOG_LEVEL_DEBUG, "You Won the first Game"); 
+				APP_LOG(APP_LOG_LEVEL_DEBUG, "END OF GAME"); 
 			}
 		break;
 		default: 
@@ -832,7 +881,7 @@ static void main_window_load(Window *window) {
   
 	//timeline_active = true;
 	
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "start timeline");}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "show timeline window");}
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "size settings: %d", persist_get_size(SETTINGS_KEY));
 	
 	s_path_1 = gpath_create(&path_1);
@@ -998,7 +1047,8 @@ static void 		set_draw_header_callback(GContext* ctx, const Layer *cell_layer, u
 }
 
 static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
-
+	int i = 0;
+	char buf[] = "0 / 0";
 	// Determine which section we're going to draw in
   switch (cell_index->section) {
     case 0:			//erste Section (Nachrichten)    	
@@ -1023,10 +1073,19 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
     case 1:			//zweite Section (Antworten)
     	switch (cell_index->row){
 				case 0:
-					menu_cell_basic_draw(ctx, cell_layer, "1 / 2", "Erfolge gefunden", NULL);		
+					for(int x = 0; x < MAX_ALIVES; x++){
+						if(settings.found_alives[x]){i++;}
+					}
+					char buf[] = "0 / 0";
+					snprintf(buf, sizeof(buf), "%d / %d", i, MAX_ALIVES);				
+					menu_cell_basic_draw(ctx, cell_layer, buf, "Erfolge gefunden", NULL);		
 				break;
-				case 1: 
-					menu_cell_basic_draw(ctx, cell_layer, "2 / 7", "Tode gefunden", NULL);
+				case 1: 					
+					for(int x = 0; x < MAX_DEADS; x++){
+						if(settings.found_deads[x]){i++;}
+					}
+					snprintf(buf, sizeof(buf), "%d / %d", i, MAX_DEADS);
+					menu_cell_basic_draw(ctx, cell_layer, buf, "Tode gefunden", NULL);
 			}
 		break;
 		case 2:
@@ -1395,23 +1454,25 @@ static void init() {
     //window_stack_push(s_info_window, true);
   } else {																		//normal app system start
 
-		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START normal start");}
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START normal start - no wakeup");}
 		
 		if(settings.next_step != NULL && settings.active_text_count == 0){
 			
 			if(settings.next_step->id <= 1){ 		//first run
-				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Welcome window...");}
+				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Welcome window... (FIRST RUN)");}
 			
 				wakeup_cancel_all();
 				settings.wakeup_reason = -1;				
 			
 				window_stack_push(s_welc_window, true);	
 			}else{													//show currend game
-				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window");}
+				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window (SHOW CURREND GAME, GO ON WITH NEXT STEP)");}
 				window_stack_push(s_main_window, true);	
 			}
 	
 		}else{
+			
+			
 			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window (next_step == NULL)");}
 			window_stack_push(s_main_window, true);	
 		}
