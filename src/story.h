@@ -14,6 +14,7 @@ typedef enum {
 	MILESTONE, 		//save this ID as a Milestone -> restart from here
 	FOUND_DEAD,		//save this ID(time) in the FOUND history
 	FOUND_ALIVE,
+	BUTTON_MILESTONES,
 	//DIE_AKKU,
 	//SHOW_WON,
 	//SHOW_DIE,

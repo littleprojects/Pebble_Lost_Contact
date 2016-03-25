@@ -10,7 +10,7 @@ GAME_FLOW g = {
 	.desc =	"Rette Tom.\n\nTom ist in Schwierigkeiten und nur du kannst ihm helfen.\n\nDu bist die letzte Verbindung die er hat. Helf Tom bei wichtigen Entscheidungen und sicher so sein Überleben.\n",
 	.text_wait = "Tom wartet auf eine Antwort.",
 	.text_msg = "Empfange neue Nachricht.",
-	.step_count = 267,						//WICHTIG - step_count immer aktuell halten
+	.step_count = 270,						//WICHTIG - step_count immer aktuell halten
 	.step = {
 //ID, nextID, Delay, Type, Text, Special ID 		if nextId = 0 -> auto countup -> nextID = ID+1
 		{  1,   0,  1, INFO, "[Signal gefunden]"},
@@ -100,7 +100,7 @@ GAME_FLOW g = {
 		{  95, 96,  1, TEXT, "Ich meld mich wieder wenn ich was gefunden habe."},
 		{  96, 97, 30, INFO, "Tom ist beschäftigt."},
 		
-		{  97, 98,  0, MILESTONE, "Probleme"},													//first MILESTONE
+		{  97, 98,  0, MILESTONE, "Akku leer"},													//first MILESTONE
 		{  98, 99,  1, TEXT, "Da bin ich wieder."},
 		{  99,100,  1, TEXT, "Und ich glaube wir haben ein Problem..."},
 		
@@ -206,9 +206,9 @@ GAME_FLOW g = {
 		{ 193,194,  1, TEXT, "Das da was ist."},	
 		{ 194,195,  1, TEXT, "Oder das es jetzt wieder weg ist."},	
 		{ 195,196,  1, TEXT, "Bin gleich im Batterie Raum."},
-		{ 196,200, 30, INFO, "Tom ist beschäftigt."},			
+		{ 196,199, 30, INFO, "Tom ist beschäftigt."},			
 //batterien							//153
-																				//second MILESTONE
+		{ 199,200,  0, MILESTONE, "Batterien"},						//second MILESTONE
 		{ 200,201,  1, TEXT, "So, ich bin bei den Batterien."},	
 		{ 201,202,  1, TEXT, "Sie scheinen geladen zu sein."},
 		{ 202,210,  1, TEXT, "Die Kontroll LEDs der Batterien sind Grün."},
@@ -376,16 +376,19 @@ GAME_FLOW g = {
 //end of Text								262
 			
 		{ 500,501,  1, INFO, "[Text alle]"},
-		{ 501,1100, 1, INFO, "ENDE"},
+		{ 501,2001, 1, INFO, "ENDE"},
 																			//264
 			
-		//{  74, 76,  1, TEXT, "Hab ich schon erwähnt: Es ist toten still hier.", 0},
-//Die Akku
+//Die
 		{1001,1002,  0, FOUND_DEAD, ""},	//FOUND DEAD #0
-		{1002,1100,  0, INFO, "[Tom verloren]"},
+		{1002,2001,  0, INFO, "[GAME OVER]"},
+//ERROR
+		{2000,2001,  0, INFO, "ERROR"},
+			
+//END
+		{2001,2002,  0, BUTTON_MILESTONES,"Load MILESTONE"},
+		{2002,   0,  0, END, ""}
 		
-		
-		{1100,   0,  1, END, ""}
 		
 		//WICHTIG - step_count immer aktuell halten !!! IMMER
 		
