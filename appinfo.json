@@ -5,33 +5,45 @@
     ],
     "companyName": "David Lenk",
     "enableMultiJS": false,
-    "longName": "Lost Contact: Moonbase",
+    "longName": "LAST SIGNAL",
     "projectType": "native",
     "resources": {
         "media": [
             {
                 "file": "images/bg3.png",
                 "name": "MSG_BG3",
-                "targetPlatforms": null,
+                "targetPlatforms": [
+                    "aplite",
+                    "basalt"
+                ],
                 "type": "bitmap"
             },
             {
                 "file": "images/bg2.png",
                 "name": "MSG_BG2",
-                "targetPlatforms": null,
+                "targetPlatforms": [
+                    "aplite",
+                    "basalt"
+                ],
                 "type": "bitmap"
             },
             {
                 "file": "images/bg1.png",
                 "name": "MSG_BG1",
-                "targetPlatforms": null,
+                "targetPlatforms": [
+                    "aplite",
+                    "basalt"
+                ],
                 "type": "bitmap"
             },
             {
                 "file": "images/icon2.png",
                 "menuIcon": true,
                 "name": "ICON",
-                "targetPlatforms": null,
+                "targetPlatforms": [
+                    "aplite",
+                    "basalt"
+                ],
                 "type": "bitmap"
             }
         ]

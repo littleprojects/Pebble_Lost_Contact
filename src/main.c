@@ -3,6 +3,8 @@
 #include "story.h"
 #include "save.h"
 
+#undef RAND_MAX
+#define RAND_MAX (2)
 
 /* Color / BW
 #ifdef PBL_COLOR
@@ -20,6 +22,10 @@ PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
 */ //colors/hardware switch
 
 /*	
+
+	Bug:
+		Backgound image for Basalt (function: info_window_load())
+
 	Story!!!
 	
 	Multi lang support
@@ -69,6 +75,7 @@ static TextLayer 	*s_welc_text1;
 static TextLayer 	*s_welc_text2;
 
 static TextLayer 	*s_info_text;			//info layer 
+static TextLayer 	*s_info_text2;			
 static Layer 			*s_info_layer;
 
 
@@ -158,6 +165,8 @@ static STEP * findStep(int id){
 static void setWakeup(TYPE reason, int min){
 	wakeup_cancel_all();
 	int addHour = 0;
+
+
 	//time_t now = time(NULL);            //load the time
 	time_t wakeup_time = time(NULL) + min * 60;			//time in min
 	
@@ -473,6 +482,7 @@ void load_settings() {
 
 			//check pointer
 			if(settings.active_text_count > 0){
+
 				if(!is_step_real(settings.active_text[0]->id)){
 					//show Error
 					
@@ -495,13 +505,14 @@ void load_settings() {
 	}
 
 	
+
 } 
 
 // ------------------------------------ Game Main Function ----------------
 
 //game action & timer callback
 static void game_action(void *data){
-	bool show = 1;
+	bool show = 0;
 	if(debug || show){APP_LOG(APP_LOG_LEVEL_DEBUG, "START: GAME_ACTION ");}
 	STEP *step = settings.next_step;
 	int timer 	= 0;
@@ -513,6 +524,12 @@ static void game_action(void *data){
 		//Error next step not found
 		if(debug || show){APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: Next step not found. Step is NULL");}
 		return;	
+	}
+	
+	//step not found
+	if(step->id > 100000){
+		//show Error
+		step = findStep(errorId);	
 	}
 	
 	//no waiting in rapid_mode or Error
@@ -652,10 +669,9 @@ static void wakeup_handler() {
 	//reset the wakeup reason
 	settings.wakeup_reason = -1;
 	
+	//show Info screen
 	window_stack_pop_all(false);
-  window_stack_push(s_info_window, true);
-	
-	//game_action(NULL);
+  window_stack_push(s_info_window, true);	
 }
 
 // ------------------------------------ Timeline Menu Layer callbacks --------------- jear 
@@ -672,8 +688,11 @@ static void menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, v
 		
 			setWakeup(TEXT, 60);	//set a reminder. 
 			
+
+
 			step = settings.active_antw[cell_index->row];
 		  
+
 			if(step->type == ANTW){
 				clear_menu();
 				addText(step);
@@ -694,6 +713,8 @@ static void menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, v
 				window_stack_push(s_mile_window, true);		//show milestones
 			}
 		
+
+
 			//zwischenstand speichern
 			save_settings();
 				
@@ -769,17 +790,17 @@ static void 		menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, 
   switch (section_index) {
     case 0:
         // Draw title text in the section header
-        menu_cell_basic_header_draw(ctx, cell_layer, "Nachrichten:");
+        menu_cell_basic_header_draw(ctx, cell_layer, "Messages:");
       break;
     case 1:
         // Draw title text in the section header
 				if(settings.active_antw_count > 0){
-					menu_cell_basic_header_draw(ctx, cell_layer, "Senden...");	
+					menu_cell_basic_header_draw(ctx, cell_layer, "send:");	
 				}else{
 					if(settings.wakeup_reason != TEXT){
-						menu_cell_basic_header_draw(ctx, cell_layer, "Empfange Daten...");
+						menu_cell_basic_header_draw(ctx, cell_layer, "receiving...");
 					}else{
-						menu_cell_basic_header_draw(ctx, cell_layer, "Warte auf Tom");
+						menu_cell_basic_header_draw(ctx, cell_layer, "Waiting for Tom.");
 					}
 				}
         
@@ -927,10 +948,10 @@ static void main_window_load(Window *window) {
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "size settings: %d", persist_get_size(SETTINGS_KEY));
 	
 	//create the msg borders
-	s_path_1 = gpath_create(&path_1);
+	s_path_1 = gpath_create(&path_1);		//1 line border
 	s_path_2 = gpath_create(&path_2);
 	s_path_3 = gpath_create(&path_3);
-	s_path_4 = gpath_create(&path_4);
+	s_path_4 = gpath_create(&path_4);		//4 line border
 	
 	//s_background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BG_1);
 	
@@ -1017,6 +1038,7 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					settings.sleep_time = !settings.sleep_time;
 					menu_layer_reload_data(menu_layer);
 				break;
+				/*
 				case 3:	//neustart
 					setNextStep(0);
 					wakeup_cancel_all();
@@ -1026,11 +1048,12 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					window_stack_pop_all(true);
 					window_stack_push(s_welc_window, true);
 				break;
-				case 4:	//Milestone
+				*/
+				case 3:	//Milestone
 					//menu_layer_reload_data(menu_layer); //update the mile menu
 					window_stack_push(s_mile_window, true);		//show milestones
 				break;
-				case 5:	//reset data
+				case 4:	//reset data
 					//delete the savegame
 					persist_delete(SETTINGS_KEY);
 				
@@ -1101,7 +1124,7 @@ static uint16_t set_get_num_rows_callback(MenuLayer *menu_layer, uint16_t sectio
   switch (section_index) {
     case 0:			
 			//settings
-			return 6;
+			return 5;
     case 1:
 			//achievments
       return 2;
@@ -1128,7 +1151,7 @@ static void 		set_draw_header_callback(GContext* ctx, const Layer *cell_layer, u
       break;
     case 1:
         // Draw title text in the section header
-			menu_cell_basic_header_draw(ctx, cell_layer, "Erfolge:");        
+			menu_cell_basic_header_draw(ctx, cell_layer, "Achievements:");        
     	break;
 		case 2:
 			menu_cell_basic_header_draw(ctx, cell_layer, "Extras:");        
@@ -1153,13 +1176,15 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
 				case 2:
 					menu_cell_basic_draw(ctx, cell_layer, "Rest period", (settings.sleep_time ? "22:00-8:00" : "off"), NULL);
 				break;
+				/*
 				case 3:
 					menu_cell_basic_draw(ctx, cell_layer, "Restart", NULL, NULL);	//"start from 0"
 				break;
-				case 4:
+				*/
+				case 3:
 					menu_cell_basic_draw(ctx, cell_layer, "Milestones", NULL, NULL);	//"go back in time"
 				break;
-				case 5:
+				case 4:
 					menu_cell_basic_draw(ctx, cell_layer, "Reset", NULL, NULL); //"delete all"
 				break;
 			}
@@ -1436,24 +1461,65 @@ static void info_window_load(Window *window) {
 	Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_frame(window_layer);
   //GRect max_bounds = GRect(0, 0, 130, 2000);
-	
-	//graphics_draw_bitmap_in_rect(ctx, s_msg_background, bounds);
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", rand() %3 );}
-	switch(rand() %3){
-		case 0: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
-		case 1: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG2); 	break;
-		case 2: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG3); 	break;
-		default: s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
-	}
-	
-  s_background_layer = bitmap_layer_create(layer_get_frame(window_layer));
-  bitmap_layer_set_bitmap(s_background_layer, s_background_image);
-  layer_add_child(window_layer, bitmap_layer_get_layer(s_background_layer));
-	
-	
+
 	s_info_layer = layer_create(bounds);
 	
-	window_set_click_config_provider(window, (ClickConfigProvider) info_click_config_provider);	
+	//set a background image	
+	if(PEBBLE_VERSION!= 0) //dont work for Aplite :/   0= Aplite
+	{
+		//get random number
+		int random = rand()%3;
+		
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", random );}
+		
+		/*
+		//s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1);
+		switch(rand() %3){
+			case 0: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
+			case 1: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG2); 	break;
+			case 2: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG3); 	break;
+			default: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
+		}
+		*/
+
+		uint32_t resource_id = RESOURCE_ID_MSG_BG1;
+
+		switch(random){
+			case 0: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
+			case 1: 	resource_id = RESOURCE_ID_MSG_BG2; 	break;
+			case 2: 	resource_id = RESOURCE_ID_MSG_BG3; 	break;
+			default: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
+		}
+
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "resource_id: %d", (int)resource_id );
+		gbitmap_destroy(s_background_image);
+		s_background_image = gbitmap_create_with_resource(resource_id);
+
+
+		s_background_layer = bitmap_layer_create(bounds);
+		bitmap_layer_set_compositing_mode(s_background_layer, GCompOpSet);
+		bitmap_layer_set_bitmap(s_background_layer, s_background_image);
+
+		//Add image to the layer
+		layer_add_child(window_layer, bitmap_layer_get_layer(s_background_layer));
+		layer_mark_dirty(bitmap_layer_get_layer(s_background_layer));
+	}
+	
+	else //add Game name
+	{
+		s_info_text2 = text_layer_create(GRect(0, 0, bounds.size.w, 100));
+		text_layer_set_text(s_info_text2, g.name);	//Headline
+		text_layer_set_font(s_info_text2, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
+		text_layer_set_background_color(s_info_text2, GColorClear);
+		text_layer_set_text_color(s_info_text2, welcome_text_color);
+		text_layer_set_text_alignment(s_info_text2, GTextAlignmentCenter);
+		
+		layer_add_child(s_info_layer, text_layer_get_layer(s_info_text2));
+		//layer_add_child(window_layer, s_info_layer);
+	}
+	
+	
+	//s_info_layer = layer_create(bounds);	
 	
 	//if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "show: %d", (int)settings.next_step->id);}
 	
@@ -1468,11 +1534,14 @@ static void info_window_load(Window *window) {
   text_layer_set_font(s_info_text, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 	text_layer_set_text_alignment(s_info_text, GTextAlignmentCenter);		
 	
-	//add text to the scroll layer
-	layer_add_child(s_info_layer, text_layer_get_layer(s_info_text));		
+	//add text to the layer
+	layer_add_child(s_info_layer, text_layer_get_layer(s_info_text));	
 	
 	//add layer to the window
 	layer_add_child(window_layer, s_info_layer);
+	
+	//set click_provider
+	window_set_click_config_provider(window, (ClickConfigProvider) info_click_config_provider);
 }
 
 static void info_window_unload(Window *window) {
@@ -1484,6 +1553,7 @@ static void info_window_unload(Window *window) {
 	layer_destroy(s_info_layer);
 	
 	text_layer_destroy(s_info_text);
+	text_layer_destroy(s_info_text2);
 }
 
 // ------------------------------------ Credits Layer callbacks ---------------
@@ -1708,6 +1778,8 @@ static void init() {
 		}
 				
   }  
+	
+	//window_stack_push(s_info_window, true);  //just to test this page
 }
 
 static void deinit() {

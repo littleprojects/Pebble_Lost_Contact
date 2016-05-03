@@ -5,13 +5,15 @@
 
 //---------------------------------- main settings -----------------------
 
-#define MAX_TEXT 15
-#define MAX_ANTW 4
-#define MAX_MILESTONE 10
-#define MAX_DEADS 4
-#define MAX_ALIVES 1
+#define MAX_TEXT 				15
+#define MAX_ANTW 				4
+#define MAX_MILESTONE 	10
+#define MAX_DEADS 			2
+#define MAX_ALIVES 			1
 
-#define SETTINGS_KEY 1						//saveloaction
+#define SETTINGS_KEY 		1					//saveloaction
+
+#define PEBBLE_VERSION  					PBL_IF_COLOR_ELSE(1, 0)		//Basalt = 1; Aplite = 0;
 
 #define welcome_text_color				GColorBlack
 #define welcome_bg_color					PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
