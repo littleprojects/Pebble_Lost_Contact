@@ -24,9 +24,9 @@ typedef enum {
 } TYPE;
 
 typedef struct {
-	int 			id;
-	int 			next;
-	uint16_t 	delay;
+	uint16_t	id;
+	uint16_t	next;
+	uint8_t 	delay;
 	TYPE 			type;
 	char 			*text;
 } STEP;

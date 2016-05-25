@@ -10,11 +10,19 @@
     "resources": {
         "media": [
             {
+                "file": "images/icon2_1bit.png",
+                "menuIcon": true,
+                "name": "ICON2",
+                "targetPlatforms": null,
+                "type": "pbi"
+            },
+            {
                 "file": "images/bg3.png",
                 "name": "MSG_BG3",
                 "targetPlatforms": [
                     "aplite",
-                    "basalt"
+                    "basalt",
+                    "chalk"
                 ],
                 "type": "bitmap"
             },
@@ -23,7 +31,8 @@
                 "name": "MSG_BG2",
                 "targetPlatforms": [
                     "aplite",
-                    "basalt"
+                    "basalt",
+                    "chalk"
                 ],
                 "type": "bitmap"
             },
@@ -32,30 +41,21 @@
                 "name": "MSG_BG1",
                 "targetPlatforms": [
                     "aplite",
-                    "basalt"
-                ],
-                "type": "bitmap"
-            },
-            {
-                "file": "images/icon2.png",
-                "menuIcon": true,
-                "name": "ICON",
-                "targetPlatforms": [
-                    "aplite",
-                    "basalt"
+                    "basalt",
+                    "chalk"
                 ],
                 "type": "bitmap"
             }
         ]
     },
     "sdkVersion": "3",
-    "shortName": "Hello...",
+    "shortName": "last_signal",
     "targetPlatforms": [
         "aplite",
         "basalt"
     ],
     "uuid": "1d6c7f01-d948-42a6-aa4e-b2084210ebbc",
-    "versionLabel": "0.9",
+    "versionLabel": "0.94",
     "watchapp": {
         "watchface": false
     }

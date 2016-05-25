@@ -1,30 +1,18 @@
 #include "pebble.h"
 #include "main.h"
 #include "story.h"
-#include "save.h"
 
 #undef RAND_MAX
-#define RAND_MAX (2)
-
-/* Color / BW
-#ifdef PBL_COLOR
-
-#else
-	//Aplite Colors
-	GColorBlack
-	GColorDarkGray
-	GColorLightGray
-	GColorWhite
-#endif
-
-#ifdef PBL_SDK_2
-PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
-*/ //colors/hardware switch
+#define RAND_MAX 	3
 
 /*	
+	Round support
+	https://github.com/pebble-examples/feature-menu-layer/blob/master/src/feature_menu_layer.c
 
 	Bug:
-		Backgound image for Basalt (function: info_window_load())
+		- Backgound image for Basalt (function: info_window_load()) -> load text from resource
+		- calc hight wird immer zweimal berechnet...
+		
 
 	Story!!!
 	
@@ -49,10 +37,13 @@ PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
 			* que in Add Text möglich (clear Menu anpassen/ nur noch antw count = 0)(selced index anpassen --)
 */ //TODOs
 
-static bool debug 					= 0;			//debug output on or off
-static bool StepCheck 			= 0; 			//check all steps to have a next step. -> output to console
-static bool newSaveMethode 	= 0;			//use the new savegame methode 
-static int 	errorId 				= 2000;		//ID to show a error
+#define debug 		0				//debug output on or off
+#define TESTMODE 	0				//in testmode you ust wait a few secounds for the next message
+#define StepCheck 0 			//check all steps to have a next step. -> output to console
+#define	errorId 	2000		//ID to show a error
+
+#define debug_timeline 0
+#define debug_settings 0
 
 // more game settings are in the main.h
 
@@ -64,7 +55,7 @@ static Window 		*s_welc_window;		//welcome
 static Window 		*s_info_window;		//info (Incomming Msg / waiting for input)
 static Window 		*s_menu_window;		//settings menu
 static Window			*s_mile_window;		//milestone menu
-static Window 		*s_cred_window;		//credits 
+//static Window 		*s_cred_window;		//credits 
 
 static MenuLayer 	*s_menu_layer;		//timeline_menu
 static MenuLayer 	*s_set_layer;			//settings menu layer
@@ -103,6 +94,7 @@ typedef struct {
 	bool vibe;										
 	bool rapid_mode;
 	bool sleep_time;
+	uint8_t font;
 	
 	//history
 	int history[MAX_MILESTONE];				//ID of the milestones
@@ -127,6 +119,7 @@ SETTINGS settings = {
 	.vibe = true,
 	.rapid_mode = false,
 	.sleep_time = true,
+	.font = 0,
 	
 	//history
 	.history = {0},
@@ -135,15 +128,24 @@ SETTINGS settings = {
 	//.history_count = 0
 };
 
+#if PBL_ROUND 
+static GPathInfo path_1 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,18+19},{155,18+24}, {25,18+24},{20,18+19}} };
+static GPathInfo path_2 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,36+19},{155,36+24}, {25,36+24},{20,36+19}} };	
+static GPathInfo path_3 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,54+19},{155,54+24}, {25,54+24},{20,54+19}} };	
+static GPathInfo path_4 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,72+19},{155,72+24}, {25,72+24},{20,72+19}} };
+static GPathInfo path_5 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,90+19},{155,90+24}, {25,90+24},{20,90+19}} };	
+#else		//Aplite & Basalt
 static GPathInfo path_1 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,18+19},{135,18+24}, {8,18+24},{3,18+19}} };
 static GPathInfo path_2 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,36+19},{135,36+24}, {8,36+24},{3,36+19}} };	
 static GPathInfo path_3 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,54+19},{135,54+24}, {8,54+24},{3,54+19}} };	
-static GPathInfo path_4 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,72+19},{135,72+24}, {8,72+24},{3,72+19}} };	
+static GPathInfo path_4 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,72+19},{135,72+24}, {8,72+24},{3,72+19}} };
+static GPathInfo path_5 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,90+19},{135,90+24}, {8,90+24},{3,90+19}} };
+#endif
 static GPath *s_path_1;
 static GPath *s_path_2;
 static GPath *s_path_3;
 static GPath *s_path_4;
-
+static GPath *s_path_5;
 
 
 // ------------------------------------- Game start ------------------------
@@ -166,12 +168,14 @@ static void setWakeup(TYPE reason, int min){
 	wakeup_cancel_all();
 	int addHour = 0;
 
+	if(TESTMODE){
+		min = 1;
+	}
 
-	//time_t now = time(NULL);            //load the time
 	time_t wakeup_time = time(NULL) + min * 60;			//time in min
 	
 	//respect the sleeping time
-	if(settings.sleep_time){
+	if(settings.sleep_time && !TESTMODE){
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "check Wakeup time is in sleeping time:");}
 		struct tm *t = localtime(&wakeup_time);
   	int hour = t->tm_hour;
@@ -204,7 +208,7 @@ static void setWakeup(TYPE reason, int min){
 	wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 2);			//2h later
 	wakeup_schedule(wakeup_time, reason, false);
 	
-		wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 6);			//6h later
+	wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 6);			//6h later
 	wakeup_schedule(wakeup_time, reason, false);
 	
 	wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 24);			//24h later
@@ -241,18 +245,6 @@ static void setNextStep(int id){
 		id = 1;
 	}
 	
-	/*
-	settings.next_step = NULL;
-	// old find Step
-	for(int x = 0; x < g.step_count; x++){
-		if(id == g.step[x].id){
-			//out = g.step[x].id;
-			settings.next_step = &g.step[x];		
-			break;
-		}
-	}
-	*/
-	
 	settings.next_step = findStep(id);
 }
 
@@ -264,16 +256,12 @@ static void addText(STEP *step){
 		//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText - count++");
 		settings.active_text_count++;
 		//MSG counter erhöhen für game stats
-		if(settings.active_text_count < 3){
-			//APP_LOG(APP_LOG_LEVEL_DEBUG, "addText - select++");
-			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu index row %d section %d", settings.menu_index.row, settings.menu_index.section);
-			menu_layer_set_selected_index(s_menu_layer, MenuIndex(0,settings.active_text_count), MenuRowAlignCenter, true);
-		}
+		
 	}else{
 		//Error MSG
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "to many Text Messages in the Menu: i delete the first one");}
 		//erste Nachrichten löschen (Like a fifo) + Menu_select--
-		for(int x = 1; x < MAX_TEXT; x++ ){
+		for(int x = 1; x <= settings.active_text_count; x++ ){
 			//shift all msg in the que
 			settings.active_text[x-1] = settings.active_text[x];
 		}
@@ -316,7 +304,6 @@ static void clear_menu(){
 	settings.active_antw_count = 0;
 	
 	menu_layer_set_selected_index(s_menu_layer, MenuIndex(0,0), MenuRowAlignCenter, false);
-	//menu_layer_reload_data(s_menu_layer);	
 }
 
 static bool is_step_real(int id){
@@ -335,176 +322,42 @@ static bool is_step_real(int id){
 //-------------------------------- save - load settings -------------------
 
 void save_settings() {	
-	//new saving methode
-	if(newSaveMethode){
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "save savegame");
-
-		//settings_to_savegame;
-		//savegame.active_text = {0};
-		for(int x = 0; x < MAX_TEXT; x++){
-			if(x < settings.active_text_count){
-				savegame.active_text[x] = settings.active_text[x]->id;
-				APP_LOG(APP_LOG_LEVEL_DEBUG, "save text id: %d", savegame.active_text[x]);
-			}else{
-				savegame.active_text[x] = 0;
-			}
-		}
-		savegame.active_text_count = settings.active_text_count;
-
-		//save antw ID
-		if(settings.active_antw_count > 0){
-			savegame.active_antw = settings.active_antw[1]->id;
-		}else{
-			savegame.active_antw = 0;
-		}
-
-		//save milestones
-		for(int x = 0; x < MAX_MILESTONE; x++){
-			if(settings.history[x] > 0){
-				savegame.history[x] = settings.history[x];
-			}else{
-				savegame.history[x] = 0;
-			}
-		}
-
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "save text_count: %d", savegame.active_text_count);
-		//savegame.active_antw_count = settings.active_antw_count;
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "save antw id: %d", savegame.active_antw);
-
-		if(settings.next_step != NULL){
-			savegame.next_step 			 = settings.next_step->id;
-		}else{
-			savegame.next_step 			 = 0;
-		}
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "save next_step id: %d", savegame.next_step);
-		savegame.wakeup_reason 		 = settings.wakeup_reason;
-
-		//gamesettings
-		savegame.vibe 			= settings.vibe;
-		savegame.rapid_mode = settings.rapid_mode;
-		savegame.sleep_time = settings.sleep_time;
-		savegame.menu_index = settings.menu_index;
-
-		for(int x = 0;x < MAX_DEADS; x++){
-			savegame.found_deads[x] = settings.found_deads[x];
-		}
-		for(int x = 0; x < MAX_ALIVES; x++){
-			savegame.found_alives[x] = settings.found_alives[x];
-		}
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", savegame.menu_index.row, savegame.menu_index.section);
-
-		save_savegame();	
-		
-	//old saving method
-	}else{
-		//save data	
-		persist_write_data(SETTINGS_KEY, &settings, sizeof(settings)); //old methode - save settings directly
-	}
+	
+	//save data	
+	persist_write_data(SETTINGS_KEY, &settings, sizeof(settings)); //old methode - save settings directly
+	
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVED");}
 }
 
 void load_settings() {  
-	//new Saving mehtod
-	if(newSaveMethode){		
 	
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Loading savegame from memory");
-		load_savegame();
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "loaded - writing memory in cash");
+	//check data in the memory		
+	if (persist_exists(SETTINGS_KEY) && persist_get_size(SETTINGS_KEY) == (int)sizeof(settings)){
+		//load data
+		persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));	
 
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", savegame.menu_index.row, savegame.menu_index.section);
+		//check pointer
+		if(settings.active_text_count > 0){
 
-		//texte
-		settings.active_text_count = 0;
-		for(int x = 0; x < savegame.active_text_count; x++){
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "load Text #%d mit ID: %d ", x, savegame.active_text[x]);
-			settings.active_text[x] = findStep(savegame.active_text[x]);
-			settings.active_text_count++;
-			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Settings %d hat id: %d", x, settings.active_text[x]->id);
-		}
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "TEXT COUNT: %d", settings.active_text_count);
+			if(!is_step_real(settings.active_text[0]->id)){
+				//show Error
 
-		//antw
-		settings.active_antw_count = 0;
-		if(savegame.active_antw > 0){
-			//find all Antw with id
-			for(int x = 0; x < g.step_count; x++){
-				if(savegame.active_antw == g.step[x].id ){
-					if(g.step[x].type == ANTW){
-						//addAntw(&g.step[x]);
-						settings.active_antw[settings.active_antw_count] = &g.step[x];
-						settings.active_antw_count++;
-					}
-				}
+				//if(debug){
+				APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: Step is not real - show error");
+				//}
+				//clear_menu();
+				settings.active_text_count = 0;
+				settings.active_antw_count = 0;
+				settings.wakeup_reason = 0;				//reset the wakeup reason
+
+				setNextStep(errorId);							//set the Error as next step
 			}
 		}
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "ANTW COUNT: %d", settings.active_antw_count);
 
-		//milestones
-		for(int x = 0; x < MAX_MILESTONE; x++){
-			//if(savegame.history[x] > 0){
-				settings.history[x] = savegame.history[x];
-			//}
-		}
-
-		//set next step	
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "next step: %d", savegame.next_step);
-		if(savegame.next_step > 0){
-			setNextStep(savegame.next_step);
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "SET next Step with id: %d", savegame.next_step);
-		}else if(savegame.next_step == 0){
-			settings.next_step = NULL;
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "SET next Step = NULL");
-		}
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "NextStep ID: %d", settings.next_step->id);
-
-		settings.wakeup_reason = savegame.wakeup_reason;
-			//gamsesettings
-		settings.vibe 			= savegame.vibe;
-		settings.rapid_mode = savegame.rapid_mode;
-		settings.sleep_time = savegame.sleep_time;
-		settings.menu_index = savegame.menu_index; 
-
-		for(int x = 0;x < MAX_DEADS; x++){
-			settings.found_deads[x] = savegame.found_deads[x];
-		}
-		for(int x = 0; x < MAX_ALIVES; x++){
-			settings.found_alives[x] = savegame.found_alives[x];
-		}
-
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Menu Index row: %d, section; %d", settings.menu_index.row, settings.menu_index.section);
-		
-	//old saving method
 	}else{
-		//check data in the memory		
-		if (persist_exists(SETTINGS_KEY) && persist_get_size(SETTINGS_KEY) == (int)sizeof(settings)){
-			//load data
-			persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));	
-
-			//check pointer
-			if(settings.active_text_count > 0){
-
-				if(!is_step_real(settings.active_text[0]->id)){
-					//show Error
-					
-					//if(debug){
-						APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: Step is not real - show error");
-					//}
-					//clear_menu();
-					settings.active_text_count = 0;
-					settings.active_antw_count = 0;
-					settings.wakeup_reason = 0;				//reset the wakeup reason
-					
-					setNextStep(errorId);							//set the Error as next step
-				}
-			}
-			
-		}else{
-			//memory not okay			
-			//start with default settings
-		}
+		//memory not okay			
+		//start with default settings
 	}
-
-	
 
 } 
 
@@ -514,6 +367,7 @@ void load_settings() {
 static void game_action(void *data){
 	bool show = 0;
 	if(debug || show){APP_LOG(APP_LOG_LEVEL_DEBUG, "START: GAME_ACTION ");}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free());}
 	STEP *step = settings.next_step;
 	int timer 	= 0;
 	bool go_on 	= true;
@@ -527,7 +381,7 @@ static void game_action(void *data){
 	}
 	
 	//step not found
-	if(step->id > 100000){
+	if(step->id > 10000){
 		//show Error
 		step = findStep(errorId);	
 	}
@@ -560,7 +414,7 @@ static void game_action(void *data){
 			update_menu = true;
 			setNextStep(step->next);
 			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Next Step: %d", step->next); 
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free()); 
+			//APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free()); 
 		break;
 //ANTW
 		case ANTW:
@@ -619,6 +473,9 @@ static void game_action(void *data){
 			
 			settings.next_step = NULL;
 			go_on = false;
+			
+			//cancel all wakeup
+			wakeup_cancel_all();
 		
 			//clear_menu();
 			//active_text_count = 0;
@@ -655,7 +512,14 @@ static void game_action(void *data){
 			s_timer = app_timer_register(10, game_action, NULL);
 		}
 	}
-	
+
+	//auto scroll down
+	#if PBL_RECT
+	if(settings.active_text_count < 3){
+		//menu_layer_set_selected_index(s_menu_layer, MenuIndex(0,settings.active_text_count), MenuRowAlignCenter, true);
+		menu_layer_set_selected_next(s_menu_layer, false, MenuRowAlignCenter, PBL_IF_ROUND_ELSE(false, true));
+	}	
+	#endif
 }
 
 static void wakeup_handler() {
@@ -671,7 +535,11 @@ static void wakeup_handler() {
 	
 	//show Info screen
 	window_stack_pop_all(false);
-  window_stack_push(s_info_window, true);	
+	#if PBL_ROUND
+  	window_stack_push(s_info_window, false);	
+	#else
+		window_stack_push(s_info_window, true);	
+	#endif
 }
 
 // ------------------------------------ Timeline Menu Layer callbacks --------------- jear 
@@ -682,16 +550,14 @@ static void menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, v
 	STEP *step;
 	switch (cell_index->section){
 		case 0:	//Empfangs Items
-			window_stack_push(s_menu_window, true);		//open the settings menu
+			//open the settings menu
+			window_stack_push(s_menu_window, PBL_IF_ROUND_ELSE(false, true));	
 		break;
 		case 1: //Antwort Items
 		
 			setWakeup(TEXT, 60);	//set a reminder. 
-			
 
-
-			step = settings.active_antw[cell_index->row];
-		  
+			step = settings.active_antw[cell_index->row];		  
 
 			if(step->type == ANTW){
 				clear_menu();
@@ -710,10 +576,9 @@ static void menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, v
 			}
 			if(step->type == BUTTON_MILESTONES){
 				settings.next_step = NULL;
-				window_stack_push(s_mile_window, true);		//show milestones
+				//show milestones
+  			window_stack_push(s_mile_window, PBL_IF_ROUND_ELSE(false, true));	
 			}
-		
-
 
 			//zwischenstand speichern
 			save_settings();
@@ -725,21 +590,25 @@ static void menu_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, v
 
 static uint16_t get_text_hight(STEP *step){
 	if(step == NULL){
-		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SORRY: Step is NULL (getTextHight)");}
+		if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "SORRY: Step is NULL (getTextHight)");}
 		return 0;
 	}	
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "calc Texthight from text: %s", step->text);}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "calc Texthight from text: %s", step->text);}
 	
 	TextLayer *text_layer;
 	
-	GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+	GFont font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_24));
 	
 	if(step->type == INFO || step->type == ANTW){
-		font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+		font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
 	}
 	
 	//get the size 
+	#if PBL_ROUND
+	text_layer = text_layer_create(GRect(0, 0, 130, 500));
+	#else
 	text_layer = text_layer_create(GRect(0, 0, 128, 500));
+	#endif
 	text_layer_set_text(text_layer, step->text);	
 	text_layer_set_overflow_mode(text_layer, GTextOverflowModeWordWrap);
   text_layer_set_font(text_layer, font);	
@@ -748,7 +617,7 @@ static uint16_t get_text_hight(STEP *step){
 	text_layer_destroy(text_layer);
 	
 	//if(size.h < 37){size.h = 37;}
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "TEXT HIGHT: %d", size.h);}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "TEXT HIGHT: %d", size.h);}
 	
 	return size.h;	
 	//return 20;
@@ -761,7 +630,7 @@ static uint16_t menu_get_num_sections_callback(MenuLayer *menu_layer, void *data
 	if(settings.active_antw_count > 0 || settings.wakeup_reason > 0){
 		return 2;
 	}else{
-		return 1;
+		return 2;
 	}
 }
 
@@ -784,7 +653,7 @@ static int16_t 	menu_get_header_height_callback(MenuLayer *menu_layer, uint16_t 
 }
 
 static void 		menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data) {
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "draw header");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "draw header");}
 	
 	// Determine which section we're working with
   switch (section_index) {
@@ -809,18 +678,18 @@ static void 		menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, 
 }
 
 static int16_t 	menu_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context) {
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> cell height section: %d row: %d", cell_index->section, cell_index->row);}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> cell height section: %d row: %d", cell_index->section, cell_index->row);}
 	//return 18+26;
 
 	switch (cell_index->section) {
     case 0:			//erste Section (Nachrichten)
 		
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> step text id %d", settings.active_text[cell_index->row]->id);}
+			if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> step text id %d", settings.active_text[cell_index->row]->id);}
 			return get_text_hight(settings.active_text[cell_index->row])+26;
 	
 		break;
 		case 1:		//zweite Section (Antworten)
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> step antw id %d", settings.active_antw[cell_index->row]->id);}
+			if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> step antw id %d", settings.active_antw[cell_index->row]->id);}
 			return get_text_hight(settings.active_antw[cell_index->row])+26;
 		break;
 		default: return 0;
@@ -829,12 +698,12 @@ static int16_t 	menu_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *
 
 static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
  
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "draw row");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "draw row");}
 	
 	STEP *step; 
 	int size=0;
 	
-	GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+	GFont font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_24));
 	GPath *s_path = s_path_1;
 	
 	graphics_context_set_fill_color(ctx, timeline_box_fill_color);
@@ -850,12 +719,13 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			size = get_text_hight(step);
 		
 			if(step->type == INFO || step->type == ANTW){
-				font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
 			}
 		
 			if(size>18){s_path = s_path_2;}
 			if(size>36){s_path = s_path_3;}
-			if(size>54){s_path = s_path_4;}		
+			if(size>54){s_path = s_path_4;}
+			if(size>72){s_path = s_path_5;}	
 		
 			//draw background
 			#ifdef PBL_COLOR
@@ -866,7 +736,11 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			graphics_draw_text(ctx, 
 				step->text, 
 				font,
-				GRect(8, 12, 128, 100), 
+				#if PBL_ROUND
+					GRect(25, 12, 130, 100), 
+				#else
+					GRect(8, 12, 128, 100), 
+				#endif
 				GTextOverflowModeWordWrap, 
 				GTextAlignmentCenter, 
 				NULL);			
@@ -878,12 +752,13 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			size = get_text_hight(step);
 		
 			if(step->type == INFO || step->type == ANTW){
-				font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
 			}
 		
 			if(size>18){s_path = s_path_2;}
 			if(size>36){s_path = s_path_3;}
-			if(size>54){s_path = s_path_4;}	
+			if(size>54){s_path = s_path_4;}
+			if(size>72){s_path = s_path_5;}	
 			
 			//highlight selected row
 			if(menu_cell_layer_is_highlighted(cell_layer)){
@@ -900,6 +775,10 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 				#endif				
 			}
 			
+			#if PBL_ROUND
+				graphics_context_set_fill_color(ctx, timeline_ant_fill_color);
+			#endif
+		
 			#ifdef PBL_COLOR
 			gpath_draw_filled(ctx, s_path);
 			#endif
@@ -908,43 +787,22 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			graphics_draw_text(ctx, 
 				step->text, 
 				font,
-				GRect(8, 12, 128, 100), 
+				#if PBL_ROUND
+					GRect(25, 12, 130, 100), 
+				#else
+					GRect(8, 12, 128, 100), 
+				#endif 
 				GTextOverflowModeWordWrap, 
 				GTextAlignmentCenter, 
 				NULL);
   }
 }
 
-/*
-static void     menu_draw_separator_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *callback_context){
-	
-}
-
-static uint16_t	menu_get_separator_height_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index, void *callback_context){
-	return 2;
-}
-
-static void  		menu_draw_background_callback(GContext *ctx, const Layer *bg_layer, bool highlight, void *callback_context){
- 
-	//for a static Timeline Background
-	GPath *s_current_path = gpath_create(&path_1);
-	
-	graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorDukeBlue, GColorBlack));
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-	graphics_context_set_stroke_width(ctx, 2);
-	
-	gpath_move_to(s_current_path, GPoint(0,3));
-	gpath_draw_outline(ctx, s_current_path);
-	//gpath_draw_filled(ctx, s_current_path);
-	
-} 
-*/ //draw separator
-
-static void main_window_load(Window *window) {
+static void 		main_window_load(Window *window) {
   
 	//timeline_active = true;
 	
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "show timeline window");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "show timeline window");}
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "size settings: %d", persist_get_size(SETTINGS_KEY));
 	
 	//create the msg borders
@@ -952,6 +810,7 @@ static void main_window_load(Window *window) {
 	s_path_2 = gpath_create(&path_2);
 	s_path_3 = gpath_create(&path_3);
 	s_path_4 = gpath_create(&path_4);		//4 line border
+	s_path_5 = gpath_create(&path_5);
 	
 	//s_background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BG_1);
 	
@@ -959,15 +818,15 @@ static void main_window_load(Window *window) {
   window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_frame(window_layer);
 	
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "set timeline callbacks");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "set timeline callbacks");}
 	
   // Create the menu layer
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks){
     .get_num_sections 	= menu_get_num_sections_callback,
     .get_num_rows 			= menu_get_num_rows_callback,
-    .get_header_height 	= menu_get_header_height_callback,
-    .draw_header 				= menu_draw_header_callback,
+    .get_header_height 	= PBL_IF_RECT_ELSE(menu_get_header_height_callback, NULL),
+    .draw_header 				= PBL_IF_RECT_ELSE(menu_draw_header_callback, NULL),
     .draw_row 					= menu_draw_row_callback,
     .select_click 			= menu_select_callback,
     .get_cell_height 		= menu_get_cell_height_callback
@@ -976,19 +835,24 @@ static void main_window_load(Window *window) {
 		//.draw_separator			= menu_draw_separator_callback
   });
 		
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "timeline callbacks ready");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "timeline callbacks ready");}
 	
 	//Menu config
 	menu_layer_set_normal_colors(s_menu_layer, GColorClear, timeline_text_color);
 	menu_layer_set_highlight_colors(s_menu_layer, GColorClear, timeline_text_color);
+	#if PBL_ROUND
+		menu_layer_pad_bottom_enable(s_menu_layer, true);
+	#else
+		menu_layer_set_center_focused(s_menu_layer, false);
+	#endif
 	
 	
 	//set menu index to the old postionen
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "set menu index");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "set menu index");}
 	menu_layer_set_selected_index(s_menu_layer, settings.menu_index, MenuRowAlignCenter, false);
 	
 	//start the game
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "start game action");}
+	if(debug && debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "start game action");}
 	game_action(NULL);
 		
   // Bind the menu layer's click config provider to the window for interactivity
@@ -997,7 +861,7 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
 }
 
-static void main_window_unload(Window *window) {
+static void 		main_window_unload(Window *window) {
 	
 	settings.menu_index = menu_layer_get_selected_index(s_menu_layer);
 	
@@ -1010,13 +874,14 @@ static void main_window_unload(Window *window) {
 	gpath_destroy(s_path_2);
 	gpath_destroy(s_path_3);
 	gpath_destroy(s_path_4);
+	gpath_destroy(s_path_5);
 }
 
 // ------------------------------------ Settings Menu Layer --------------
 
 static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *data) {
   // Use the row to specify which item will receive the select action
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: select");}
+	if(debug && debug_settings){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: select");}
 	switch (cell_index->section){
 		case 0:	//Settings
 			switch (cell_index->row){
@@ -1039,6 +904,12 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					menu_layer_reload_data(menu_layer);
 				break;
 				/*
+				case 3:	//fontsize
+					settings.font = (settings.font == 0 ? 1 : 0);
+					menu_layer_reload_data(menu_layer);
+				break;
+				*/
+				/*
 				case 3:	//neustart
 					setNextStep(0);
 					wakeup_cancel_all();
@@ -1049,11 +920,42 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					window_stack_push(s_welc_window, true);
 				break;
 				*/
-				case 3:	//Milestone
-					//menu_layer_reload_data(menu_layer); //update the mile menu
-					window_stack_push(s_mile_window, true);		//show milestones
+				case 4:	//Milestone
+					//show milestones
+					#if PBL_ROUND
+						window_stack_push(s_mile_window, false);	
+					#else
+						window_stack_push(s_mile_window, true);	
+					#endif
 				break;
-				case 4:	//reset data
+			}			
+		
+		break;
+		case 1: //Antwort Items		
+			/*
+			switch (cell_index->row) {				
+				case 0:
+					
+      	break;
+				case 1:
+					
+				break;
+				default: break;
+  		}
+			*/
+		break;
+		//reset
+		case 2:
+			switch(cell_index->row){
+				case 0:
+					//show intro
+					#if PBL_ROUND
+						window_stack_push(s_welc_window, false);	
+					#else
+						window_stack_push(s_welc_window, true);	
+					#endif
+				break;
+				case 1:	//reset data
 					//delete the savegame
 					persist_delete(SETTINGS_KEY);
 				
@@ -1079,34 +981,13 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					settings.wakeup_reason = -1;
 				
 					clear_menu();
-					window_stack_pop_all(true);
-					window_stack_push(s_welc_window, true);
-				break;
-			}			
-		
-		break;
-		case 1: //Antwort Items		
-			/*
-			switch (cell_index->row) {				
-				case 0:
 					
-      	break;
-				case 1:
-					
+					window_stack_pop_all(false);
+					window_stack_push(s_welc_window, PBL_IF_ROUND_ELSE(false, true));	
 				break;
-				default: break;
-  		}
-			*/
-		break;
-		case 2:
-			switch(cell_index->row){
-				case 0:
+				case 2:
 					//show credits
-					window_stack_push(s_cred_window, true);	
-				break;
-				case 1:
-					//show intro
-					window_stack_push(s_welc_window, true);	
+					//window_stack_push(s_cred_window, true);
 				break;
 			}
 			
@@ -1120,11 +1001,11 @@ static uint16_t set_get_num_sections_callback(MenuLayer *menu_layer, void *data)
 }
 
 static uint16_t set_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index, void *data) {
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: num row");}
+	if(debug && debug_settings){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: num row");}
   switch (section_index) {
     case 0:			
 			//settings
-			return 5;
+			return 4;
     case 1:
 			//achievments
       return 2;
@@ -1143,7 +1024,7 @@ static int16_t 	set_get_header_height_callback(MenuLayer *menu_layer, uint16_t s
 
 static void 		set_draw_header_callback(GContext* ctx, const Layer *cell_layer, uint16_t section_index, void *data) {
   // Determine which section we're working with
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: draw header");}
+	if(debug && debug_settings){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: draw header");}
   switch (section_index) {
     case 0:
         // Draw title text in the section header
@@ -1163,7 +1044,7 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
 	int i = 0;
 	char buf[] = "0 / 0";
 	// Determine which section we're going to draw in
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: draw row");}
+	if(debug && debug_settings){APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS: draw row");}
   switch (cell_index->section) {
     case 0:			//erste Section (Einstellungen)    	
 			switch (cell_index->row) {
@@ -1178,14 +1059,16 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
 				break;
 				/*
 				case 3:
+					menu_cell_basic_draw(ctx, cell_layer, "Font size", (settings.font == 0 ? "default" : "+1"), NULL);
+				break;
+				*/
+				/*
+				case 3:
 					menu_cell_basic_draw(ctx, cell_layer, "Restart", NULL, NULL);	//"start from 0"
 				break;
 				*/
-				case 3:
-					menu_cell_basic_draw(ctx, cell_layer, "Milestones", NULL, NULL);	//"go back in time"
-				break;
 				case 4:
-					menu_cell_basic_draw(ctx, cell_layer, "Reset", NULL, NULL); //"delete all"
+					menu_cell_basic_draw(ctx, cell_layer, "Milestones", NULL, NULL);	//"go back in time"
 				break;
 			}
       break;
@@ -1210,10 +1093,13 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
 		case 2:
 			switch (cell_index->row){
 				case 0:
-					menu_cell_basic_draw(ctx, cell_layer, "Credits", NULL, NULL);
+					menu_cell_basic_draw(ctx, cell_layer, "Intro", NULL, NULL);
 				break;
 				case 1:
-					menu_cell_basic_draw(ctx, cell_layer, "Intro", NULL, NULL);
+					menu_cell_basic_draw(ctx, cell_layer, "Reset", NULL, NULL); //"delete all"
+				break;
+				case 2:
+					menu_cell_basic_draw(ctx, cell_layer, "Credits", NULL, NULL);
 				break;
 			}
 		break;
@@ -1236,8 +1122,8 @@ static void 		set_window_load(Window *window) {
   menu_layer_set_callbacks(s_set_layer, NULL, (MenuLayerCallbacks){
     .get_num_sections 	= set_get_num_sections_callback,
     .get_num_rows 			= set_get_num_rows_callback,
-    .get_header_height 	= set_get_header_height_callback,
-    .draw_header 				= set_draw_header_callback,
+    .get_header_height 	= PBL_IF_RECT_ELSE(set_get_header_height_callback,NULL),
+    .draw_header 				= PBL_IF_RECT_ELSE(set_draw_header_callback,NULL),
     .draw_row 					= set_draw_row_callback,
     .select_click 			= set_select_callback,
     //.get_cell_height 		= menu_get_cell_height_callback,
@@ -1260,6 +1146,7 @@ static void 		set_window_unload(Window *window) {
   menu_layer_destroy(s_set_layer);
 }
 
+
 // ------------------------------------ Milestone Menu Layer --------------
 
 static void 		mil_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *data) {
@@ -1271,8 +1158,12 @@ static void 		mil_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 		settings.wakeup_reason = -1;
 
 		clear_menu();
-		window_stack_pop_all(true);
-		window_stack_push(s_welc_window, true);
+		window_stack_pop_all(false);
+		#if PBL_ROUND
+			window_stack_push(s_welc_window, false);	
+		#else
+			window_stack_push(s_welc_window, true);	
+		#endif
 	}else{
 		//Milestone
 		//cell_index->row-1
@@ -1281,8 +1172,12 @@ static void 		mil_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 		settings.wakeup_reason = -1;
 
 		clear_menu();
-		window_stack_pop_all(true);
-		window_stack_push(s_main_window, true);
+		window_stack_pop_all(false);
+		#if PBL_ROUND
+			window_stack_push(s_main_window, false);	
+		#else
+			window_stack_push(s_main_window, true);	
+		#endif
 	}		
 }
 
@@ -1350,8 +1245,8 @@ static void 		mil_window_load(Window *window) {
   menu_layer_set_callbacks(s_mil_layer, NULL, (MenuLayerCallbacks){
     .get_num_sections 	= mil_get_num_sections_callback,
     .get_num_rows 			= mil_get_num_rows_callback,
-    .get_header_height 	= mil_get_header_height_callback,
-    .draw_header 				= mil_draw_header_callback,
+    .get_header_height 	= PBL_IF_RECT_ELSE(mil_get_header_height_callback,NULL),
+    .draw_header 				= PBL_IF_RECT_ELSE(mil_draw_header_callback,NULL),
     .draw_row 					= mil_draw_row_callback,
     .select_click 			= mil_select_callback,
     //.get_cell_height 		= menu_get_cell_height_callback,
@@ -1378,7 +1273,11 @@ static void 		mil_window_unload(Window *window) {
 
 void welc_select_click_handler(ClickRecognizerRef recognizer, void *context){
 	window_stack_remove(s_welc_window,false);
-	window_stack_push(s_main_window, true);	
+	#if PBL_ROUND
+		window_stack_push(s_main_window, false);	
+	#else
+		window_stack_push(s_main_window, true);	
+	#endif
 }
 
 void welc_click_config_provider() {
@@ -1394,7 +1293,11 @@ static void welc_window_load(Window *window) {
 	
 	Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_frame(window_layer);
-  GRect max_bounds = GRect(0, 0, 144, 2000);
+	#if PBL_ROUND
+  	GRect max_bounds = GRect(0, 00, 160, 2000);
+	#else
+		GRect max_bounds = GRect(0, 0, 144, 2000);
+	#endif
 	
 	s_welc_layer = scroll_layer_create(bounds);
 	
@@ -1406,14 +1309,22 @@ static void welc_window_load(Window *window) {
 	window_set_background_color(s_welc_window, welcome_bg_color);
 	
 	//draw Layer inputs	
-	s_welc_text1 = text_layer_create(GRect(0, 0, max_bounds.size.w, 100));
+	#if PBL_ROUND
+		s_welc_text1 = text_layer_create(GRect(20, 20, max_bounds.size.w, 100));
+	#else
+		s_welc_text1 = text_layer_create(GRect(0, 0, max_bounds.size.w, 100));
+	#endif
 	text_layer_set_text(s_welc_text1, g.name);	//Headline
   text_layer_set_font(s_welc_text1, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 	text_layer_set_background_color(s_welc_text1, GColorClear);
 	text_layer_set_text_color(s_welc_text1, welcome_text_color);
 	text_layer_set_text_alignment(s_welc_text1, GTextAlignmentCenter);	
 
-	s_welc_text2 = text_layer_create(GRect(5,60, max_bounds.size.w-10, max_bounds.size.h));
+	#if PBL_ROUND
+		s_welc_text2 = text_layer_create(GRect(25,80, max_bounds.size.w-10, max_bounds.size.h));
+	#else
+		s_welc_text2 = text_layer_create(GRect(5,60, max_bounds.size.w-10, max_bounds.size.h));
+	#endif
 	text_layer_set_text(s_welc_text2, g.desc);			//description text
   text_layer_set_font(s_welc_text2, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
 	text_layer_set_text_alignment(s_welc_text2, GTextAlignmentLeft);	
@@ -1423,7 +1334,11 @@ static void welc_window_load(Window *window) {
 	text_layer_set_size(s_welc_text1, GSize(144,size.h+10));
 	
 	//resize the scroll layer
-	scroll_layer_set_content_size(s_welc_layer, GSize(144, size.h + 60 + 10));
+	#if PBL_ROUND
+		scroll_layer_set_content_size(s_welc_layer, GSize(160, size.h + 110 + 10));
+	#else
+		scroll_layer_set_content_size(s_welc_layer, GSize(144, size.h + 60 + 10));
+	#endif
 	
 	//add text to the scroll layer
 	scroll_layer_add_child(s_welc_layer, text_layer_get_layer(s_welc_text1));	
@@ -1444,7 +1359,11 @@ static void welc_window_unload(Window *window) {
 
 void info_click_handler(){
 	window_stack_remove(s_info_window,false);
-	window_stack_push(s_main_window, true);		
+	#if PBL_ROUND
+		window_stack_push(s_main_window, false);		
+	#else
+		window_stack_push(s_main_window, true);		
+	#endif
 }
 
 void info_click_config_provider(){
@@ -1460,71 +1379,44 @@ static void info_window_load(Window *window) {
 	
 	Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_frame(window_layer);
-  //GRect max_bounds = GRect(0, 0, 130, 2000);
 
 	s_info_layer = layer_create(bounds);
 	
 	//set a background image	
-	if(PEBBLE_VERSION!= 0) //dont work for Aplite :/   0= Aplite
-	{
-		//get random number
-		int random = rand()%3;
-		
-		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", random );}
-		
-		/*
-		//s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1);
-		switch(rand() %3){
-			case 0: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
-			case 1: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG2); 	break;
-			case 2: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG3); 	break;
-			default: 	gbitmap_destroy(s_background_image);s_background_image = gbitmap_create_with_resource(RESOURCE_ID_MSG_BG1); 	break;
-		}
-		*/
 
-		uint32_t resource_id = RESOURCE_ID_MSG_BG1;
+	//get random number
+	int random = rand()%3;
 
-		switch(random){
-			case 0: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
-			case 1: 	resource_id = RESOURCE_ID_MSG_BG2; 	break;
-			case 2: 	resource_id = RESOURCE_ID_MSG_BG3; 	break;
-			default: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
-		}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", random );}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free());}
 
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "resource_id: %d", (int)resource_id );
-		gbitmap_destroy(s_background_image);
-		s_background_image = gbitmap_create_with_resource(resource_id);
+	uint32_t resource_id = RESOURCE_ID_MSG_BG1;
 
-
-		s_background_layer = bitmap_layer_create(bounds);
-		bitmap_layer_set_compositing_mode(s_background_layer, GCompOpSet);
-		bitmap_layer_set_bitmap(s_background_layer, s_background_image);
-
-		//Add image to the layer
-		layer_add_child(window_layer, bitmap_layer_get_layer(s_background_layer));
-		layer_mark_dirty(bitmap_layer_get_layer(s_background_layer));
+	switch(random){
+		case 0: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
+		case 1: 	resource_id = RESOURCE_ID_MSG_BG2; 	break;
+		case 2: 	resource_id = RESOURCE_ID_MSG_BG3; 	break;
+		default: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
 	}
-	
-	else //add Game name
-	{
-		s_info_text2 = text_layer_create(GRect(0, 0, bounds.size.w, 100));
-		text_layer_set_text(s_info_text2, g.name);	//Headline
-		text_layer_set_font(s_info_text2, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
-		text_layer_set_background_color(s_info_text2, GColorClear);
-		text_layer_set_text_color(s_info_text2, welcome_text_color);
-		text_layer_set_text_alignment(s_info_text2, GTextAlignmentCenter);
 		
-		layer_add_child(s_info_layer, text_layer_get_layer(s_info_text2));
-		//layer_add_child(window_layer, s_info_layer);
-	}
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "resource_id: %d", (int)resource_id );
 	
-	
-	//s_info_layer = layer_create(bounds);	
-	
-	//if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "show: %d", (int)settings.next_step->id);}
-	
-	//draw Layer inputs	
-	s_info_text = text_layer_create(GRect(7, 50, 137, 100));
+	s_background_image = gbitmap_create_with_resource(resource_id);
+
+	s_background_layer = bitmap_layer_create(bounds);
+	bitmap_layer_set_compositing_mode(s_background_layer, GCompOpSet);
+	bitmap_layer_set_bitmap(s_background_layer, s_background_image);
+
+	//Add image to the layer
+	layer_add_child(window_layer, bitmap_layer_get_layer(s_background_layer));
+
+		
+	//draw Layer inputs
+	#if PBL_ROUND
+		s_info_text = text_layer_create(GRect(25, 61, 137, 100));	//round position
+	#else
+		s_info_text = text_layer_create(GRect(7, 50, 137, 100));	//rect position
+	#endif
 	text_layer_set_text(s_info_text, g.text_msg);	//Headline incoming Msg
 	if(settings.next_step == NULL){
 		text_layer_set_text(s_info_text, g.text_wait);	//Headline waiting for answer
@@ -1542,6 +1434,9 @@ static void info_window_load(Window *window) {
 	
 	//set click_provider
 	window_set_click_config_provider(window, (ClickConfigProvider) info_click_config_provider);
+	//if(debug){
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap END LOAD INFO Window: %d", (int)heap_bytes_free());
+	//}
 }
 
 static void info_window_unload(Window *window) {
@@ -1556,8 +1451,8 @@ static void info_window_unload(Window *window) {
 	text_layer_destroy(s_info_text2);
 }
 
+/*
 // ------------------------------------ Credits Layer callbacks ---------------
-
 
 void cred_select_click_handler(ClickRecognizerRef recognizer, void *context){
 	window_stack_remove(s_welc_window,false);
@@ -1622,7 +1517,7 @@ static void cred_window_unload(Window *window) {
 	text_layer_destroy(s_welc_text1);
 	text_layer_destroy(s_welc_text2);
 }
-
+*/ //credit layer
 // -------------------------------------- Start and Close the App ----------
 
 void checkSteps(){
@@ -1667,12 +1562,15 @@ void checkSteps(){
 
 static void init() {
 	//persist_delete(SETTINGS_KEY);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "size of settings; %d", (int)sizeof(settings));
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "size of persist; %d", persist_get_size(SETTINGS_KEY));
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "size of settings; %d", (int)sizeof(settings));
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "size of persist; %d", persist_get_size(SETTINGS_KEY));
 	
-	
+	//if(debug){APP_LOG(
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free());
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Used heap: %d", (int)heap_bytes_used());
+	//}
+		
 	srand(time(NULL));
-	//if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", rand() %3 );}
 	
 	//load data
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD SAVEGAME");}
@@ -1719,6 +1617,7 @@ static void init() {
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: settings");}
 	
+	
 	//init milestone menu
 	s_mile_window = window_create();	//settings_menu
   window_set_window_handlers(s_mile_window, (WindowHandlers){
@@ -1727,6 +1626,7 @@ static void init() {
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: milestone menu");}
 	
+	/*
 	//init credits layer
 	s_cred_window = window_create();
   window_set_window_handlers(s_cred_window, (WindowHandlers){
@@ -1734,23 +1634,21 @@ static void init() {
     .unload = cred_window_unload,
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: credits");}
-
+*/
+	
 	// subscribe to wakeup service to get wakeup events while app is running
 	wakeup_service_subscribe(wakeup_handler);
 	
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "launche_reason: %d", launch_reason());}
 	
-  if(launch_reason() == APP_LAUNCH_WAKEUP) { //App start from wakeup
+	//App start from wakeup
+  if(launch_reason() == APP_LAUNCH_WAKEUP) { 
 
-		//if (wakeup_get_launch_event(&id, &reason)) {
-		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START wakeup handler");}
-    
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START wakeup handler");}    
 		wakeup_handler();
-		//window_stack_push(s_info_window, true);
-    //}
-  //} else if (wakeup_scheduled) {
-    //window_stack_push(s_info_window, true);
-  } else {																		//normal app system start
+
+	//normal app system start
+  } else {																		
 
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START normal start - no wakeup");}
 		
@@ -1763,23 +1661,36 @@ static void init() {
 				settings.wakeup_reason = -1;
 				
 				//setNextStep(1);
-			
-				window_stack_push(s_welc_window, true);	
+	
+				#if PBL_ROUND
+					window_stack_push(s_welc_window, false);	
+				#else
+					window_stack_push(s_welc_window, true);	
+				#endif
 			}else{													//show currend game
 				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window (SHOW CURREND GAME, GO ON WITH NEXT STEP)");}
-				window_stack_push(s_main_window, true);	
+				#if PBL_ROUND
+					window_stack_push(s_main_window, false);	
+				#else
+					window_stack_push(s_main_window, true);	
+				#endif
 			}
 	
 		}else{
 			
 			
 			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window (next_step == NULL)");}
-			window_stack_push(s_main_window, true);	
+			#if PBL_ROUND
+				window_stack_push(s_main_window, false);	
+			#else
+				window_stack_push(s_main_window, true);	
+			#endif
 		}
 				
   }  
-	
-	//window_stack_push(s_info_window, true);  //just to test this page
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free()); 
+	//window_stack_push(s_info_window, false);  //just to test this page
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap after: %d", (int)heap_bytes_free());
 }
 
 static void deinit() {
@@ -1789,7 +1700,8 @@ static void deinit() {
 	window_destroy(s_welc_window);
 	window_destroy(s_info_window);
 	window_destroy(s_menu_window);
-	window_destroy(s_cred_window);
+	window_destroy(s_mile_window);
+	//window_destroy(s_cred_window);
 }
 
 int main(void) {
