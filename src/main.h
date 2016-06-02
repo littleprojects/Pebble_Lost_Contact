@@ -3,11 +3,6 @@
 
 //---------------------------------- main settings -----------------------
 
-#define MAX_TEXT 				20
-#define MAX_ANTW 				4
-#define MAX_MILESTONE 	5
-#define MAX_DEADS 			2
-#define MAX_ALIVES 			1
 
 #define SETTINGS_KEY 		1					//saveloaction
 

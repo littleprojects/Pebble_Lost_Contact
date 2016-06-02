@@ -10,6 +10,12 @@
     "resources": {
         "media": [
             {
+                "file": "data/story_en.story",
+                "name": "STORY_EN",
+                "targetPlatforms": null,
+                "type": "raw"
+            },
+            {
                 "file": "images/icon2_1bit.png",
                 "menuIcon": true,
                 "name": "ICON2",
