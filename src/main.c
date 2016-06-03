@@ -8,6 +8,8 @@
 *
 */ //TODO
 
+#define TESTMODE				1			//testmodus the time to next Step is set to 1 min
+
 #define debug						1
 #define debug_parser 		0
 #define debug_welcome		0
@@ -109,7 +111,33 @@ static TextLayer 	*s_info_text2;
 static Layer 			*s_info_layer;
 
 
-//settings
+//Timer var
+static AppTimer 	*s_timer;
+
+//images
+static GBitmap 		*s_background_image;
+static BitmapLayer *s_background_layer;
+
+#if PBL_ROUND 
+static GPathInfo path_1 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,18+19},{155,18+24}, {25,18+24},{20,18+19}} };
+static GPathInfo path_2 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,36+19},{155,36+24}, {25,36+24},{20,36+19}} };	
+static GPathInfo path_3 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,54+19},{155,54+24}, {25,54+24},{20,54+19}} };	
+static GPathInfo path_4 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,72+19},{155,72+24}, {25,72+24},{20,72+19}} };
+static GPathInfo path_5 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,90+19},{155,90+24}, {25,90+24},{20,90+19}} };	
+#else		//Aplite & Basalt
+static GPathInfo path_1 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,18+19},{135,18+24}, {8,18+24},{3,18+19}} };
+static GPathInfo path_2 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,36+19},{135,36+24}, {8,36+24},{3,36+19}} };	
+static GPathInfo path_3 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,54+19},{135,54+24}, {8,54+24},{3,54+19}} };	
+static GPathInfo path_4 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,72+19},{135,72+24}, {8,72+24},{3,72+19}} };
+static GPathInfo path_5 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,90+19},{135,90+24}, {8,90+24},{3,90+19}} };
+#endif
+static GPath *s_path_1;
+static GPath *s_path_2;
+static GPath *s_path_3;
+static GPath *s_path_4;
+static GPath *s_path_5;
+
+//settings && savegame
 typedef struct save_line{
 	uint16_t start;
 	uint16_t id;
@@ -460,6 +488,86 @@ void search_id(uint search_id){
 	if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "end search");}
 }
 
+// ------------------------------------ Game functions ---------------
+
+static void setWakeup(TYPE reason, int min){
+	wakeup_cancel_all();
+	int addHour = 0;
+
+	if(TESTMODE){
+		min = 1;
+	}
+
+	time_t wakeup_time = time(NULL) + min * 60;			//time in min
+	
+	//respect the sleeping time
+	if(settings.sleep_time && !TESTMODE){
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "check Wakeup time is in sleeping time:");}
+		struct tm *t = localtime(&wakeup_time);
+  	int hour = t->tm_hour;
+		
+		if(hour >= 22){
+			addHour = (32 - hour) * 60 * 60; //h* 60min * 60sec = secounds
+			
+		}			
+		if(hour <= 8){
+			addHour = (8 - hour) * 60 * 60; 
+		}
+		wakeup_time = time(NULL) + (min * 60) + addHour;
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Set Wakeup - AddHour: %d ", addHour/60/60);}
+	}
+	
+	//rapid mode
+	if(settings.rapid_mode){
+		//wakeup_time = time(NULL) + 1;
+	}
+	
+	//first wakeup
+	wakeup_schedule(wakeup_time, reason, true);	
+	
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Set Wakeup - time: %d (min)", min);}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Set Wakeup - reason: %d", settings.wakeup_reason);}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Set Wakeup - now time: %ld", time(NULL));}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Set Wakeup - wakeup time: %ld", wakeup_time);}
+	
+	//gentle reminder
+	wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 2);			//2h later
+	wakeup_schedule(wakeup_time, reason, false);
+	
+	wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 6);			//6h later
+	wakeup_schedule(wakeup_time, reason, false);
+	
+	wakeup_time = time(NULL) + (min * 60) + (addHour) + (60 * 60 * 24);			//24h later
+	wakeup_schedule(wakeup_time, reason, false);
+	
+	//set wakeup reason
+	settings.wakeup_reason = reason;	//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer
+
+	//save settings
+	//save_settings();
+}
+
+// ------------------------------------ Wakeup handler ---------------
+
+static void wakeup_handler() {
+  
+	wakeup_cancel_all();
+	if (settings.vibe){
+		vibes_double_pulse();	
+		vibes_double_pulse();
+	}	
+	
+	//reset the wakeup reason
+	settings.wakeup_reason = -1;
+	
+	//show Info screen
+	window_stack_pop_all(false);
+	#if PBL_ROUND
+  	window_stack_push(s_info_window, false);	
+	#else
+		window_stack_push(s_info_window, true);	
+	#endif
+}
 
 // ------------------------------------ Welcome Layer callbacks ---------------
 
@@ -545,6 +653,102 @@ static void welc_window_unload(Window *window) {
 	
 	text_layer_destroy(s_welc_text1);
 	text_layer_destroy(s_welc_text2);
+}
+
+// ------------------------------------ Info Layer callbacks ---------------
+
+void info_click_handler(){
+	window_stack_remove(s_info_window,false);
+	#if PBL_ROUND
+		window_stack_push(s_main_window, false);		
+	#else
+		window_stack_push(s_main_window, true);		
+	#endif
+}
+
+void info_click_config_provider(){
+	window_single_click_subscribe(BUTTON_ID_SELECT, info_click_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, info_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, info_click_handler);
+  //window_single_click_subscribe(BUTTON_ID_BACK, info_click_handler);
+}
+
+static void info_window_load(Window *window) {
+	
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "start info window");}
+	
+	Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_frame(window_layer);
+
+	s_info_layer = layer_create(bounds);
+	
+	//set a background image	
+
+	//get random number
+	int random = rand()%3;
+
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "rand %d", random );}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free());}
+
+	uint32_t resource_id = RESOURCE_ID_MSG_BG1;
+
+	switch(random){
+		case 0: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
+		case 1: 	resource_id = RESOURCE_ID_MSG_BG2; 	break;
+		case 2: 	resource_id = RESOURCE_ID_MSG_BG3; 	break;
+		default: 	resource_id = RESOURCE_ID_MSG_BG1; 	break;
+	}
+		
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "resource_id: %d", (int)resource_id );
+	
+	s_background_image = gbitmap_create_with_resource(resource_id);
+
+	s_background_layer = bitmap_layer_create(bounds);
+	bitmap_layer_set_compositing_mode(s_background_layer, GCompOpSet);
+	bitmap_layer_set_bitmap(s_background_layer, s_background_image);
+
+	//Add image to the layer
+	layer_add_child(window_layer, bitmap_layer_get_layer(s_background_layer));
+
+		
+	//draw Layer inputs
+	#if PBL_ROUND
+		s_info_text = text_layer_create(GRect(25, 61, 137, 100));	//round position
+	#else
+		s_info_text = text_layer_create(GRect(7, 50, 137, 100));	//rect position
+	#endif
+	text_layer_set_text(s_info_text, lang.text_msg);	//Headline incoming Msg
+	if(settings.next_id == 0){
+		text_layer_set_text(s_info_text, lang.text_wait);	//Headline waiting for answer
+	}
+	text_layer_set_background_color(s_info_text, GColorClear);
+	text_layer_set_text_color(s_info_text, GColorBlack);
+  text_layer_set_font(s_info_text, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_text_alignment(s_info_text, GTextAlignmentCenter);		
+	
+	//add text to the layer
+	layer_add_child(s_info_layer, text_layer_get_layer(s_info_text));	
+	
+	//add layer to the window
+	layer_add_child(window_layer, s_info_layer);
+	
+	//set click_provider
+	window_set_click_config_provider(window, (ClickConfigProvider) info_click_config_provider);
+	//if(debug){
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap END LOAD INFO Window: %d", (int)heap_bytes_free());
+	//}
+}
+
+static void info_window_unload(Window *window) {
+	//save_settings();
+	
+	bitmap_layer_destroy(s_background_layer);
+  gbitmap_destroy(s_background_image);
+	
+	layer_destroy(s_info_layer);
+	
+	text_layer_destroy(s_info_text);
+	text_layer_destroy(s_info_text2);
 }
 
 // --------------------------------------------- Check file ---------------------------
@@ -686,32 +890,11 @@ static void init(void) {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Size: %d Byte", filesize);
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Size: %d Zeichen", filesize);
 	
-	check_file();
+	//check_file();
 	
-/*
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "\n\nSEARCH_ID 4\n\n");
-	search_id(4);
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK start: %d", work.start);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK len: %d", work.len);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK id: %d", work.id);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK nid: %d", work.next_id);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK typ: %d", work.typ);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK text: %s", (char*)work.text);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK spec: %d", work.special);
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "\n\nSEARCH_ID 6\n\n");	
-	search_id(6);
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK start: %d", work.start);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK len: %d", work.len);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK id: %d", work.id);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK nid: %d", work.next_id);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK typ: %d", work.typ);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK text: %s", (char*)work.text);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK spec: %d", work.special);
-*/
-	
+	//seed random generator
+	srand(time(NULL));
+		
 	//init welcome
 	s_welc_window = window_create();	//welcome
   window_set_window_handlers(s_welc_window, (WindowHandlers){
@@ -720,6 +903,13 @@ static void init(void) {
   });
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: welcome");}
 	
+	//init info/msg layer
+	s_info_window = window_create();	//info (incoming Msg / waiting for answer)
+  window_set_window_handlers(s_info_window, (WindowHandlers){
+    .load 	= info_window_load,
+    .unload = info_window_unload,
+  });
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: infocard");}
 	
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "launche_reason: %d", launch_reason());}
 	
@@ -727,7 +917,7 @@ static void init(void) {
   if(launch_reason() == APP_LAUNCH_WAKEUP) { 
 
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START wakeup handler");}    
-		//wakeup_handler();
+		wakeup_handler();
 
 	//normal app system start
   } else {																		
