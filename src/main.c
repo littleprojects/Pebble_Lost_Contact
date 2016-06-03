@@ -1,4 +1,6 @@
 #include <pebble.h>
+#include "main.h"
+#include "lang.h"
 
 /* TODO
 *
@@ -6,16 +8,21 @@
 *
 */ //TODO
 
-#define degug					1
-#define debug_parser 	0
+#define debug						1
+#define debug_parser 		0
+#define debug_welcome		0
 
-#define MAX_TEXT_LEN	100
-#define MAX_HEAD_LEN 	20
-#define MAX_LINE_LEN	(MAX_TEXT_LEN + MAX_HEAD_LEN)
+#define MAX_TEXT_LEN		100
+#define MAX_HEAD_LEN 		20
+#define MAX_LINE_LEN		(MAX_TEXT_LEN + MAX_HEAD_LEN)
 
-#define MAX_TEXT_COUNT 20
-#define MAX_ANTW_COUNT 2
-#define MAX_MILE_COUNT 10
+#define MAX_TEXT_COUNT 	20
+#define MAX_ANTW_COUNT 	2
+#define MAX_MILE_COUNT 	10
+
+#define MAX_MILESTONE	 	10
+#define MAX_ALIVES			3
+#define MAX_DEADS				1
 
 typedef enum {
   INFO 							= (uint8_t)'I',			//create a Info Textbox
@@ -78,6 +85,84 @@ uint old_pointer 	= 1;		//for double line read check
 uint last_pointer = 0;		//the save the last found ID
 uint last_id 			= 0;
 uint line 				= 0;
+
+//global Layer
+static Layer 			*window_layer;
+
+static Window 		*s_main_window;		//timeline
+static Window 		*s_welc_window;		//welcome
+static Window 		*s_info_window;		//info (Incomming Msg / waiting for input)
+static Window 		*s_menu_window;		//settings menu
+static Window			*s_mile_window;		//milestone menu
+//static Window 		*s_cred_window;		//credits 
+
+static MenuLayer 	*s_menu_layer;		//timeline_menu
+static MenuLayer 	*s_set_layer;			//settings menu layer
+static MenuLayer 	*s_mil_layer;			//milestone menu layer
+
+static ScrollLayer*s_welc_layer;		//welcome layer
+static TextLayer 	*s_welc_text1;
+static TextLayer 	*s_welc_text2;
+
+static TextLayer 	*s_info_text;			//info layer 
+static TextLayer 	*s_info_text2;			
+static Layer 			*s_info_layer;
+
+
+//settings
+typedef struct save_line{
+	uint16_t start;
+	uint16_t id;
+} save_line;
+
+typedef struct {
+  //current game 
+	save_line active_text[MAX_TEXT_COUNT];	//pointer of the Text Steps
+	save_line active_antw[MAX_ANTW_COUNT];	//pointer of the antw Steps
+	uint8_t   active_text_count;				
+  uint8_t   active_antw_count;
+	uint16_t 	next_id;								//pointer of the next Step	
+	
+	int8_t		wakeup_reason;								//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer)
+	MenuIndex	menu_index;								//save the current position in the timeline
+	
+	//settings	
+	bool 	vibe;													//vibration
+	bool 	rapid_mode;										//fast mode
+	bool 	sleep_time;											
+	uint8_t font;												//font size 0= standard, 1= +1
+	
+	//history
+	save_line	history[MAX_MILESTONE];		//ID of the milestones
+	bool 			found_deads[MAX_DEADS];		//ID of the Achievments
+	bool 			found_alives[MAX_ALIVES];
+} SETTINGS;
+
+//set defaults
+SETTINGS settings = {
+	//current game var
+  .active_text_count = 0,
+	.active_antw_count = 0,
+	//.active_text 	= {NULL},
+	//.active_antw 	= {NULL},
+	.next_id 				= 1,
+	.wakeup_reason 	= -1,
+	.menu_index	 		= {0,0},
+	
+	//settings
+	.vibe = true,
+	.rapid_mode = false,
+	.sleep_time = true,
+	.font = 0,
+	
+	//history
+	//.history = {0},
+	.found_deads = {false},
+	.found_alives = {false}
+};
+
+
+// ------------------------------------ Parser ---------------
 
 //convert a line_buffer part to a int
 uint16_t parse_int(uint16_t start, uint16_t len){
@@ -376,6 +461,92 @@ void search_id(uint search_id){
 }
 
 
+// ------------------------------------ Welcome Layer callbacks ---------------
+
+void welc_select_click_handler(ClickRecognizerRef recognizer, void *context){
+	window_stack_remove(s_welc_window,false);
+	#if PBL_ROUND
+		window_stack_push(s_main_window, false);	
+	#else
+		window_stack_push(s_main_window, true);	
+	#endif
+}
+
+void welc_click_config_provider() {
+  
+	window_single_click_subscribe(BUTTON_ID_SELECT, welc_select_click_handler);
+	//window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+  //window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
+}
+
+static void welc_window_load(Window *window) {
+	
+	if(debug_welcome){APP_LOG(APP_LOG_LEVEL_DEBUG, "start welcome window");}
+	
+	Layer *window_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_frame(window_layer);
+	#if PBL_ROUND
+  	GRect max_bounds = GRect(0, 00, 160, 2000);
+	#else
+		GRect max_bounds = GRect(0, 0, 144, 2000);
+	#endif
+	
+	s_welc_layer = scroll_layer_create(bounds);
+	
+	scroll_layer_set_click_config_onto_window(s_welc_layer, window);
+	scroll_layer_set_callbacks(s_welc_layer, (ScrollLayerCallbacks){
+		.click_config_provider = welc_click_config_provider
+	});
+	
+	window_set_background_color(s_welc_window, welcome_bg_color);
+	
+	//draw Layer inputs	
+	#if PBL_ROUND
+		s_welc_text1 = text_layer_create(GRect(20, 20, max_bounds.size.w, 100));
+	#else
+		s_welc_text1 = text_layer_create(GRect(0, 0, max_bounds.size.w, 100));
+	#endif
+	text_layer_set_text(s_welc_text1, lang.name);	//Headline
+  text_layer_set_font(s_welc_text1, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_background_color(s_welc_text1, GColorClear);
+	text_layer_set_text_color(s_welc_text1, welcome_text_color);
+	text_layer_set_text_alignment(s_welc_text1, GTextAlignmentCenter);	
+
+	#if PBL_ROUND
+		s_welc_text2 = text_layer_create(GRect(25,80, max_bounds.size.w-10, max_bounds.size.h));
+	#else
+		s_welc_text2 = text_layer_create(GRect(5,60, max_bounds.size.w-10, max_bounds.size.h));
+	#endif
+	text_layer_set_text(s_welc_text2, lang.desc);			//description text
+  text_layer_set_font(s_welc_text2, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+	text_layer_set_text_alignment(s_welc_text2, GTextAlignmentLeft);	
+	text_layer_set_background_color(s_welc_text2, GColorClear);
+	text_layer_set_text_color(s_welc_text1, welcome_text_color);
+	GSize size = text_layer_get_content_size(s_welc_text2);
+	text_layer_set_size(s_welc_text1, GSize(144,size.h+10));
+	
+	//resize the scroll layer
+	#if PBL_ROUND
+		scroll_layer_set_content_size(s_welc_layer, GSize(160, size.h + 110 + 10));
+	#else
+		scroll_layer_set_content_size(s_welc_layer, GSize(144, size.h + 60 + 10));
+	#endif
+	
+	//add text to the scroll layer
+	scroll_layer_add_child(s_welc_layer, text_layer_get_layer(s_welc_text1));	
+	scroll_layer_add_child(s_welc_layer, text_layer_get_layer(s_welc_text2));	
+	
+	//add scroll layer to the window
+	layer_add_child(window_layer, scroll_layer_get_layer(s_welc_layer));
+}
+
+static void welc_window_unload(Window *window) {
+	scroll_layer_destroy(s_welc_layer);
+	
+	text_layer_destroy(s_welc_text1);
+	text_layer_destroy(s_welc_text2);
+}
+
 // --------------------------------------------- Check file ---------------------------
 
 void check_file(){
@@ -502,11 +673,10 @@ void check_file(){
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "END CHECK");	
 }
 
-
-static Window *s_window;
-static TextLayer *s_text_layer;
+// ------------------------------------ Init ---------------
 
 static void init(void) {
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START APP");}
 	
 	//set resource handle
 	rh = resource_get_handle(RESOURCE_ID_STORY_EN);
@@ -542,41 +712,72 @@ static void init(void) {
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "WORK spec: %d", work.special);
 */
 	
+	//init welcome
+	s_welc_window = window_create();	//welcome
+  window_set_window_handlers(s_welc_window, (WindowHandlers){
+    .load 	= welc_window_load,
+    .unload = welc_window_unload,
+  });
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INIT: welcome");}
 	
-	// Create a window and get information about the window
-	s_window = window_create();
-  Layer *window_layer = window_get_root_layer(s_window);
-  GRect bounds = layer_get_bounds(window_layer);
 	
-	//str to int atoi((const char *)s_buffer)
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "launche_reason: %d", launch_reason());}
 	
-  // Create a text layer and set the text
-	s_text_layer = text_layer_create(bounds);
-	text_layer_set_text(s_text_layer, "test");//(const char *)buffer);
-  
-  // Set the font and text alignment
-	text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-	text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
+	//App start from wakeup
+  if(launch_reason() == APP_LAUNCH_WAKEUP) { 
 
-	// Add the text layer to the window
-	layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(s_text_layer));
-  
-  // Enable text flow and paging on the text layer, with a slight inset of 10, for round screens
-  text_layer_enable_screen_text_flow_and_paging(s_text_layer, 10);
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START wakeup handler");}    
+		//wakeup_handler();
 
-	// Push the window, setting the window animation to 'true'
-	window_stack_push(s_window, true);
+	//normal app system start
+  } else {																		
+
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "START normal start - no wakeup");}
+		
+		if(settings.next_id > 0 && settings.active_text_count == 0){
+			
+			if(settings.next_id <= 1){ 		//first run
+				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Welcome window... (FIRST RUN)");}
+			
+				wakeup_cancel_all();
+				settings.wakeup_reason = -1;
+				
+				//setNextStep(1);
 	
-	// App Logging!
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Just pushed a window!");
+				#if PBL_ROUND
+					window_stack_push(s_welc_window, false);	
+				#else
+					window_stack_push(s_welc_window, true);	
+				#endif
+			}else{													//show currend game
+				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window (SHOW CURREND GAME, GO ON WITH NEXT STEP)");}
+				#if PBL_ROUND
+					window_stack_push(s_main_window, false);	
+				#else
+					window_stack_push(s_main_window, true);	
+				#endif
+			}
+	
+		}else{			
+			
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Timeline window (next_step == NULL)");}
+			#if PBL_ROUND
+				window_stack_push(s_main_window, false);	
+			#else
+				window_stack_push(s_main_window, true);	
+			#endif
+		}
+				
+  }  
+	
 }
 
 static void deinit(void) {
 	// Destroy the text layer
-	text_layer_destroy(s_text_layer);
+	//text_layer_destroy(s_text_layer);
 	
 	// Destroy the window
-	window_destroy(s_window);
+	//window_destroy(s_window);
 }
 
 int main(void) {
