@@ -19,7 +19,7 @@ Game function (read line, show line)
 
 #define debug						1
 #define debug_game			1			//debug for the gameaction function
-#define debug_parser 		1
+#define debug_parser 		0
 #define debug_welcome		0
 #define debug_settings  0
 #define debug_timeline	0
@@ -86,10 +86,6 @@ uint8_t line_buffer[MAX_LINE_LEN];
 //file pointer
 uint pointer	 	= 0;
 
-//uint text_count = 0;
-//uint antw_count = 0;
-//uint mile_count = 0;
-
 uint old_pointer 	= 1;		//for double line read check
 uint last_pointer = 0;		//the save the last found ID
 uint last_id 			= 0;
@@ -119,7 +115,7 @@ static Layer 			*s_info_layer;
 
 
 //Timer var
-static AppTimer 	*s_timer; //---> used in game action
+static AppTimer 	*s_timer;
 
 //images
 static GBitmap 		*s_background_image;
@@ -197,7 +193,6 @@ SETTINGS settings = {
 	.found_deads = {false},
 	.found_alives = {false}
 };
-
 
 // ------------------------------------ Parser ---------------
 
@@ -862,7 +857,7 @@ void load_settings() {
 
 // ------------------------------------ Game Main Function ----------------
 
-//TODO BUSY,	found dead, found alive, milestone, button milestone, ende
+//TODO
 void game_action(void *data){
 	if(debug_game){
 		APP_LOG(APP_LOG_LEVEL_DEBUG, " ----- GAME ACTION start -----");
@@ -927,6 +922,7 @@ void game_action(void *data){
 				for(uint i = 0; i < strlen(lang.time_busy); i++){
 					work.text[i] = (char)lang.time_busy[i];
 				}
+				work.text[strlen(lang.time_busy)] = 0;
 				//work.text = (char)lang.time_busy;
 				//strcpy(work.text, lang.time_busy);
 				work.typ  = INFO;
@@ -936,8 +932,58 @@ void game_action(void *data){
 				update_menu = true;
 				setNextId(work.next_id);
 				//go_on = false;
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "BUSY for %d min", work.special);} 
 			break;			
+//MILESTONE
+			case MILESTONE:
+				setNextId(work.next_id);	//set next step and go on
+				addMilestone();				//save this milestone
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "set Milestone");}
+			break;		
+//FOUND ALIVE		
+			case FOUND_ALIVE:
+				//add dead ID to the array
+				settings.found_alives[work.special] = true;			
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "SET FOUND_ALIVE #%d", work.special);}
+				//override the delay to go on
+				timer = 0;
+				setNextId(work.next_id);
+			break;
+//FOUND DEAD
+			case FOUND_DEAD:
+				//add dead ID to the array
+				settings.found_deads[work.special] = true;			
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "SET FOUND_DEAD #%d", work.special);}
+				//override the delay to go on
+				timer = 0;
+				setNextId(work.next_id);
+			break;		
+//Button Milestone
+			case BUTTON_MILESTONE:
+				for(uint i = 0; i < strlen(lang.set_milestone); i++){
+					work.text[i] = (char)lang.set_milestone[i];
+				}
+				work.text[strlen(lang.time_busy)] = 0;
+				//work.text[strlen(lang.time_busy)] = 10;
+				
+				addAntw();
 			
+				wakeup_cancel_all();
+				update_menu = true;
+				go_on = false;
+			break;
+//END
+			case END:
+
+				//settings.next_step = NULL;
+				go_on = false;
+
+				//cancel all wakeup
+				wakeup_cancel_all();
+
+				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "END OF GAME");} 
+
+			break;
 //default
 			default:
 				return;
@@ -948,6 +994,7 @@ void game_action(void *data){
 		//update the menu layer
 		if(update_menu){
 			menu_layer_reload_data(s_menu_layer);
+			if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "update the menu");} 
 		}
 		
 		//rapidmode
@@ -957,14 +1004,18 @@ void game_action(void *data){
 		if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "set timer: %d sec", timer);}
 		
 		if(go_on){
+			if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "GO ON :)");} 
 			//start the timer
 			if(timer > 4){ //extra long timer with wakeup reason: wait for new message 
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "TIMER: set long timer");} 
 				setWakeup(1, timer);
 			}else	if(timer>0){																	//time in sec
 				s_timer = app_timer_register(timer*1000, game_action, NULL);
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "TIMER: %d sec", timer);} 
 			}else{																							//now
 				//short Timer
 				s_timer = app_timer_register(500, game_action, NULL);
+				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "TIMER: short");} 
 			}
 		}
 		
@@ -2043,6 +2094,7 @@ static void init(void) {
 	
 	//set resource handle
 	rh = resource_get_handle(RESOURCE_ID_STORY_EN);
+	//rh = resource_get_handle(RESOURCE_ID_TEST);
 	//set filesize
 	filesize = resource_size(rh);
 	

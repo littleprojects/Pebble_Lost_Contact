@@ -13,7 +13,7 @@ LANG lang  = {
 	//timeline
 	.time_msg			= "Messages:",
 	.time_send		= "send:",
-	.time_reseiv	= "reseiving...",
+	.time_reseiv	= "receiving...",
 	.time_wait		= "Wait for Tom",
 	.time_busy		= "Tom is busy.",
 	
@@ -29,7 +29,7 @@ LANG lang  = {
 	.set_vibe			= "Vibration",
 	.set_rest_time= "Rest period",
 	.set_rapid		= "Rapid mode",
-	.set_milestone= "Milestones",
+	.set_milestone= "Milestones ",
 	.set_achiev		= "Achievements:",
 	.set_alive		= "found ways to survive",
 	.set_die			= "found ways to die",
