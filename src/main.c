@@ -4,41 +4,47 @@
 
 /* TODO
 *
-*	Dynamische Text lentgh im struct
+* TESTEN - SAVE & LOAD data
+ - milestone kann doppelt in antw geladen werden
+ - check nextId -> write time (+ is Id loaded? (check work))
+* STORY!
+*	Dynamische Text lentgh im LINE struct (wenn das möglich ist) ist ja ein Array
 *
-wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
-
-GAME ACTION function
-Game function (read line, show line) 
+* wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
 *
-* Specials: Font size,
+* Specials: 
+* - longer time for the next message (like real writing) letters * time = writetime
+* - (...) note if Tim is writing
+* - a bigger Font size,
+* - Debug output (IDs) in Game
 *
 */ //TODO
 
-#define TESTMODE				1			//testmodus the time to next Step is set to 1 min
+#define TESTMODE				0			//testmodus the time to next Step is set to 1 min
 
-#define debug						1
-#define debug_game			1			//debug for the gameaction function
+#define debug						0
+#define debug_game			0			//debug for the gameaction function
+#define debug_save			1
 #define debug_parser 		0
 #define debug_welcome		0
 #define debug_settings  0
 #define debug_timeline	0
 
-#define FCT_SAVE				0			//enable (1) oder disable (0) the save (to persitend) function
-
-#define MAX_TEXT_LEN		100
-#define MAX_HEAD_LEN 		20
-#define MAX_LINE_LEN		(MAX_TEXT_LEN + MAX_HEAD_LEN)
+#define FCT_SAVE				1			//enable (1) oder disable (0) the save (to persitend) function
 
 #define MAX_TEXT_COUNT 	20
 #define MAX_ANTW_COUNT 	2
 #define MAX_MILE_COUNT 	10
 
-//#define MAX_MILESTONE	 	10
 #define MAX_ALIVES			3
 #define MAX_DEADS				1
 
-#define DEFAULT_DELAY		1			//secound between the messages
+#define DEFAULT_DELAY		3			//secound between the messages
+
+//Parser Settings
+#define MAX_TEXT_LEN		100
+#define MAX_HEAD_LEN 		20
+#define MAX_LINE_LEN		(MAX_TEXT_LEN + MAX_HEAD_LEN)
 
 typedef enum {
   INFO 							= (uint8_t)'I',			//create a Info Textbox
@@ -68,7 +74,7 @@ typedef struct LINE{
 /*
 len;ID;nextID;TYP;Payload(Text or Int)
 24;1;0;I;[found signal]
-*/
+*/ //example line
 
 //global vars
 LINE text[MAX_TEXT_COUNT];	//Text array
@@ -134,6 +140,7 @@ static GPathInfo path_3 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}
 static GPathInfo path_4 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,72+19},{135,72+24}, {8,72+24},{3,72+19}} };
 static GPathInfo path_5 = { .num_points = 8,.points = (GPoint []) {	{3,10},{8,5}, {135,5},{140,10}, {140,90+19},{135,90+24}, {8,90+24},{3,90+19}} };
 #endif
+
 static GPath *s_path_1;
 static GPath *s_path_2;
 static GPath *s_path_3;
@@ -179,7 +186,7 @@ SETTINGS settings = {
 	//.text 	= {NULL},
 	//.antw 	= {NULL},
 	.next_id 				= 1,
-	.wakeup_reason 	= -1,
+	.wakeup_reason 	= 0,
 	.menu_index	 		= {0,0},
 	
 	//settings
@@ -198,6 +205,9 @@ SETTINGS settings = {
 
 //convert a line_buffer part to a int
 uint16_t parse_int(uint16_t start, uint16_t len){
+	//if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "Parse INT");}	
+	if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "Parse INT (start %d, len %d)", start, len);}
+	
 	uint16_t out = 0;
 	
 	//create buffer
@@ -206,15 +216,18 @@ uint16_t parse_int(uint16_t start, uint16_t len){
 	
 	//copy elementes from line to buffer
 	for(int j = 0; j < len; j++){		//len
+		//if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "add char: %d", (uint)temp[j]);}	
+		
 		temp[j] = (char)line_buffer[j + start]; //start offset
 	}
+	if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "INT-String: -->%s<--", (char*)temp);}	
 	
 	//convert buffer to int
 	out = (uint16_t)atoi((char *)temp);
 	
-	//destroy buffer
-	//free(temp);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Parse Special: %d (start %d, len %d)", out, start, len);
+	if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "INT = %d", out);}
+
+	if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "Parse Special: %d (start %d, len %d)", out, start, len);}
 	//APP_LOG(APP_LOG_LEVEL_DEBUG, "line %s", line_buffer);
 	return out;
 }
@@ -533,10 +546,16 @@ static void clear_menu(){
 }
 
 static void setWakeup(uint8_t reason, int min){
+	//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer)
+	
 	wakeup_cancel_all();
 	int addHour = 0;
 
+	//going faster in TEST- oder Rapid-Mode
 	if(TESTMODE){
+		min = 1;
+	}	
+	if(settings.rapid_mode && reason == 1){	//speed up the wait time in rapid mode
 		min = 1;
 	}
 
@@ -559,10 +578,6 @@ static void setWakeup(uint8_t reason, int min){
 		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Set Wakeup - AddHour: %d ", addHour/60/60);}
 	}
 	
-	//rapid mode
-	if(settings.rapid_mode){
-		//wakeup_time = time(NULL) + 1;
-	}
 	
 	//first wakeup
 	wakeup_schedule(wakeup_time, reason, true);	
@@ -649,12 +664,12 @@ static void set_text_hight(LINE *line){  //-> call set_text_hight(&text[1]);
 }
 
 static void addText(){
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "addText mit id: %d Text_array_id: %d", work.id, settings.active_text_count);}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> addText mit id: %d Text_array_id: %d", work.id, settings.active_text_count);}
 
 	//overflow protection
 	if(settings.active_text_count+1 == MAX_TEXT_COUNT){
 		//Error MSG
-		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "to many Text Messages in the Menu: i delete the first one");}
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INFO: to many Text Messages in the Menu: i delete the first one");}
 		
 		//erste Nachrichten löschen (Like a fifo) + Menu_select--
 		for(int x = 1; x <= settings.active_text_count; x++ ){
@@ -668,6 +683,16 @@ static void addText(){
 		settings.active_text_count--;
 	}
 	
+	//add BUSY textline
+	if(work.typ == BUSY){
+		for(uint i = 0; i < strlen(lang.time_busy); i++){
+			work.text[i] = (char)lang.time_busy[i];
+		}
+		work.text[strlen(lang.time_busy)] = 0;
+		
+		work.typ  = INFO;
+	}
+	
 	//add Line from work to text array
 	text[settings.active_text_count] = work;
 	
@@ -678,14 +703,23 @@ static void addText(){
 }
 
 static void addAntw(){
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "addAntw mit id: %d Antwcount: %d", work.id, settings.active_antw_count);}
+	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> addAntw mit id: %d Antwcount: %d", work.id, settings.active_antw_count);}
 
 	//overflow protection
 	if(settings.active_antw_count == MAX_ANTW_COUNT){
 		//Error MSG
-		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "to many Text Response options in the Menu");}		
+		if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "INFO: to many Text Response options in the Menu");}		
 		
 	}else{
+		
+		//Add Milestone Text
+		if(work.typ == BUTTON_MILESTONE){
+			for(uint i = 0; i < strlen(lang.set_milestone); i++){
+				work.text[i] = (char)lang.set_milestone[i];
+			}
+			work.text[strlen(lang.time_busy)] = 0;
+		}
+		
 		//add Line from work to text array
 		antw[settings.active_antw_count] = work;
 		
@@ -709,7 +743,7 @@ static void addMilestone(){
 			//save the milestone
 			mile[x] = work;
 			
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVE Milestone ID: %d @ slot: %d", work.id, x);}
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> ADD Milestone ID: %d @ slot: %d", work.id, x);}
 			
 			//exit
 			break;
@@ -727,7 +761,7 @@ static void addAllAntw(uint8_t id){
 	}
 }
 
-static void setNextId(uint8_t id){
+static void setNextId(uint16_t id){
 	
 	if(id == 0){
 		id = 1;
@@ -738,34 +772,43 @@ static void setNextId(uint8_t id){
 
 //-------------------------------- save - load settings -------------------
 
+//TODO - CHECK this function
 void save_settings() {		
 	//write the current Lines (text, antw & mile) the the save_line in the setting (start, id)
 	//Text Lines
+	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVE: prepare the settings to save");}
+	
 	uint8_t x = 0;
+	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> SAVE: prepare text");}
 	for (x = 0; x < MAX_TEXT_COUNT; x++){
 		if(x < settings.active_text_count){
 			settings.text[x].start = text[x].start;
 			settings.text[x].id		= text[x].id;
+			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "---> TEXT slot %d; ID: %d; start: %d ", x,text[x].id, text[x].start);}
 		}else{
 			settings.text[x].start = 0;
 			settings.text[x].id		= 0;
 		}
 	}
 	//ANTW Lines
+	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> SAVE: prepare antw");}
 	for (x = 0; x < MAX_ANTW_COUNT; x++){
 		if(x < settings.active_antw_count){
 			settings.antw[x].start = antw[x].start;
 			settings.antw[x].id		= antw[x].id;
+			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "---> ANTW slot %d; ID: %d; start: %d ", x,antw[x].id, antw[x].start);}
 		}else{
 			settings.antw[x].start = 0;
 			settings.antw[x].id		= 0;
 		}
 	}
 	//Milestine Line
+	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> SAVE: prepare milestone");}
 	for (x = 0; x < MAX_MILE_COUNT; x++){
 		if(settings.mile[x].id > 0){
 			settings.mile[x].start = mile[x].start;
 			settings.mile[x].id		= mile[x].id;
+			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "---> MILE slot %d; ID: %d; start: %d ", x,mile[x].id, mile[x].start);}
 		}else{
 			settings.mile[x].start = 0;
 			settings.mile[x].id		= 0;
@@ -775,51 +818,68 @@ void save_settings() {
 	//save data	to persitent	
 	if(FCT_SAVE){persist_write_data(SETTINGS_KEY, &settings, sizeof(settings));}
 	
-	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVED %d bytes", (int)sizeof(settings));}
+	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVED %d bytes", (int)sizeof(settings));}
 }
 
-//TODO - restore the WORK LINES (text, antw & mile) from the settings data (start, id)
+//TODO - CHECK - restore the WORK LINES (text, antw & mile) from the settings data (start, id)
 void load_settings() {  
 	
 	if(FCT_SAVE)
 	{
+		if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOAD settings");}
+		
 		//check data in the memory		
 		if (persist_exists(SETTINGS_KEY) && persist_get_size(SETTINGS_KEY) == (int)sizeof(settings)){
 
 			//load data
 			persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));	
 			
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOADED %d bytes", (int)sizeof(settings));}
+			settings.active_text_count = 0;
+			settings.active_antw_count = 0;
+			
+			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOADED %d bytes", (int)sizeof(settings));}
 
 			//restore the Line_text, line_antw & Line_mile array from save_line (start,id) data
-			for(int x = 0; x < settings.active_text_count; x++){
-				//find id settings.text[x].id at start_point settings.text[x].start
-				if(search_id_at(settings.text[x].id, settings.text[x].start)){
-					//write line in text[x]
-					addText();
+			for(int x = 0; x < MAX_TEXT_COUNT; x++){
+				if(settings.text[x].id > 0){
+					if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--->add TEXT %d; ID: %d; start: %d ", x,settings.text[x].id, settings.text[x].start);}
+					//find id settings.text[x].id at start_point settings.text[x].start
+					if(search_id_at(settings.text[x].id, settings.text[x].start)){
+						//write line in text[x]
+						addText();
+						if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "added");}
+					}
 				}
 			}
 			
 			//antw
-			for(int x = 0; x < settings.active_antw_count; x++){
-				//find id settings.text[x].id at start_point settings.text[x].start
-				if(search_id_at(settings.antw[x].id, settings.antw[x].start)){
-					//write line in text[x]
-					addAntw();
+			for(int x = 0; x < MAX_ANTW_COUNT; x++){
+				if(settings.antw[x].id > 0){
+					if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--->add ANTW %d; ID: %d; start: %d ", x,settings.antw[x].id, settings.antw[x].start);}
+
+					//find id settings.text[x].id at start_point settings.text[x].start
+					if(search_id_at(settings.antw[x].id, settings.antw[x].start)){					
+
+						//write line in text[x]
+						addAntw();
+						if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "added");}
+					}
 				}
 			}
 			
 			//milestone
 			for(int x = 0; x < MAX_MILE_COUNT; x++){
 				
-				if(settings.mile[x].id == 0){
-					break;
-				}
-				
-				//find id settings.text[x].id at start_point settings.text[x].start
-				if(search_id_at(settings.mile[x].id, settings.mile[x].start)){
-					//write line in text[x]
-					addMilestone();
+				if(settings.mile[x].id > 0){
+						
+					if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--->add MILE %d; ID: %d; start: %d ", x,settings.mile[x].id, settings.mile[x].start);}
+
+					//find id settings.text[x].id at start_point settings.text[x].start
+					if(search_id_at(settings.mile[x].id, settings.mile[x].start)){
+
+						//write line in text[x]
+						addMilestone();
+					}
 				}
 			}
 			
@@ -844,12 +904,12 @@ void load_settings() {
 			}
 			*/
 			
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOADED Data restored");}
+			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "LOADED Data restored");}
 
 		}else{
 			//memory not okay			
 			//start with default settings
-			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: no savegame found or wrong size: %d bytes found, %d bytes expected", (int)sizeof(settings), (int)persist_get_size(SETTINGS_KEY) );}
+			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: no savegame found or wrong size: %d bytes found, %d bytes expected", (int)sizeof(settings), (int)persist_get_size(SETTINGS_KEY) );}
 		}
 	}
 
@@ -872,7 +932,9 @@ void game_action(void *data){
 		//errorhandling
 		return;
 	}else{
-															 
+								
+		if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "FOUND this ID");}	
+		
 		//found the ID
 		
 		uint timer 	= 0;
@@ -884,13 +946,13 @@ void game_action(void *data){
 		//last_id				= work.id;		
 		
 		//no waiting in rapid_mode or Error
-		if(!settings.rapid_mode){																// TODO ERROR handling   && step->id != errorId
+		//if(!settings.rapid_mode){																// TODO ERROR handling   && step->id != errorId
 			if(settings.wakeup_reason != 0){
 				//do nothing while waiting for wakeup
 				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "Waiting for WAKEUP, wakeup_reason = %d", settings.wakeup_reason);}
 				return;	
 			}
-		}
+		//}
 		
 		if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "Prozessing Step ID: %d, nextId: %d, type: %d", work.id, work.next_id, work.typ);}
 		
@@ -919,6 +981,7 @@ void game_action(void *data){
 			break;
 //BUSY
 			case BUSY:
+				/*
 				for(uint i = 0; i < strlen(lang.time_busy); i++){
 					work.text[i] = (char)lang.time_busy[i];
 				}
@@ -926,7 +989,7 @@ void game_action(void *data){
 				//work.text = (char)lang.time_busy;
 				//strcpy(work.text, lang.time_busy);
 				work.typ  = INFO;
-			
+				*/
 				addText();
 				timer = work.special;
 				update_menu = true;
@@ -960,12 +1023,13 @@ void game_action(void *data){
 			break;		
 //Button Milestone
 			case BUTTON_MILESTONE:
+				/*
 				for(uint i = 0; i < strlen(lang.set_milestone); i++){
 					work.text[i] = (char)lang.set_milestone[i];
 				}
 				work.text[strlen(lang.time_busy)] = 0;
 				//work.text[strlen(lang.time_busy)] = 10;
-				
+				*/
 				addAntw();
 			
 				wakeup_cancel_all();
@@ -998,9 +1062,9 @@ void game_action(void *data){
 		}
 		
 		//rapidmode
-		if(settings.rapid_mode){
-			timer = 0;
-		}		
+		//if(settings.rapid_mode){
+			//timer = 0;
+		//}		
 		if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "set timer: %d sec", timer);}
 		
 		if(go_on){
