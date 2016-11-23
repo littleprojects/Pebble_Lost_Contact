@@ -5,39 +5,43 @@
 /* TODO
 *
 * TESTEN - SAVE & LOAD data
- - milestone kann doppelt in antw geladen werden
- - check nextId -> write time (+ is Id loaded? (check work))
+ 
 * STORY!
-*	Dynamische Text lentgh im LINE struct (wenn das möglich ist) ist ja ein Array
+*	Dynamische Text lentgh im LINE struct (wenn das möglich ist) ist ja ein Array um speicher zu sparen
 *
 * wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
 *
 * Specials: 
-* - longer time for the next message (like real writing) letters * time = writetime
+	- search id: verbesserung der Startposition (check milestones for a better/faster start point)
+	- error ID hinterlegen
+	- longer time for the next message (like real writing) letters * time = writetime
+	- milestone kann doppelt in antw geladen werden
+	- check nextId -> write time (+ is Id loaded? (check work))
 * - (...) note if Tim is writing
 * - a bigger Font size,
 * - Debug output (IDs) in Game
 *
 */ //TODO
 
-#define TESTMODE				0			//testmodus the time to next Step is set to 1 min
+#define TESTMODE				0			//testmodus the time to next Step is set to 1 min (0 default)
+#define JUMPPOINT				301		//jump to this ID after connect (for quick bugfixing in the storyline) 0(default) = no jump
 
-#define debug						0
+#define debug						0			//all debug are default on 0
 #define debug_game			0			//debug for the gameaction function
-#define debug_save			1
+#define debug_save			0
 #define debug_parser 		0
 #define debug_welcome		0
 #define debug_settings  0
 #define debug_timeline	0
 
-#define FCT_SAVE				1			//enable (1) oder disable (0) the save (to persitend) function
+#define FCT_SAVE				1			//enable(1 default) oder disable (0) the save (to persitend) function
 
 #define MAX_TEXT_COUNT 	20
 #define MAX_ANTW_COUNT 	2
 #define MAX_MILE_COUNT 	10
 
-#define MAX_ALIVES			3
-#define MAX_DEADS				1
+#define MAX_ALIVES			1
+#define MAX_DEADS				3
 
 #define DEFAULT_DELAY		3			//secound between the messages
 
@@ -90,12 +94,12 @@ uint filesize = 0;
 uint8_t line_buffer[MAX_LINE_LEN];
 
 //file pointer
-uint pointer	 	= 0;
+uint16_t pointer	 	= 0;
 
-uint old_pointer 	= 1;		//for double line read check
-uint last_pointer = 0;		//the save the last found ID
-uint last_id 			= 0;
-uint line 				= 0;
+uint16_t old_pointer 	= 1;		//for double line read check
+uint16_t last_pointer = 0;		//the save the last found ID
+uint16_t last_id 			= 0;
+uint16_t line 				= 0;
 
 //global Layer
 static Layer 			*window_layer;
@@ -296,7 +300,7 @@ bool search_id(uint search_id){
 		}
 		
 		//Längennpassung wenn das Fileende erreicht wird
-		if(pointer + MAX_LINE_LEN >= filesize){
+		if(pointer + (uint16_t)MAX_LINE_LEN >= (uint16_t)filesize){
 			//search = false;
 			len = filesize - pointer;
 			if(debug_parser){APP_LOG(APP_LOG_LEVEL_DEBUG, "Len anpassung: read fenster > filezize");}
@@ -751,7 +755,7 @@ static void addMilestone(){
 	}
 }
 
-static void addAllAntw(uint8_t id){
+static void addAllAntw(uint16_t id){
 	
 	search_id(id);	
 	addAntw();
@@ -805,7 +809,7 @@ void save_settings() {
 	//Milestine Line
 	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> SAVE: prepare milestone");}
 	for (x = 0; x < MAX_MILE_COUNT; x++){
-		if(settings.mile[x].id > 0){
+		if(mile[x].id > 0){
 			settings.mile[x].start = mile[x].start;
 			settings.mile[x].id		= mile[x].id;
 			if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "---> MILE slot %d; ID: %d; start: %d ", x,mile[x].id, mile[x].start);}
@@ -919,6 +923,11 @@ void load_settings() {
 
 //TODO
 void game_action(void *data){
+	//Jumppoint, just for debuging
+	if(JUMPPOINT > 0){
+		if(settings.next_id == 5){settings.next_id = JUMPPOINT;}	//Jumppoit for tests
+	}
+	
 	if(debug_game){
 		APP_LOG(APP_LOG_LEVEL_DEBUG, " ----- GAME ACTION start -----");
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "nextID: %d", settings.next_id);
@@ -1191,7 +1200,11 @@ static void 		menu_draw_header_callback(GContext* ctx, const Layer *cell_layer, 
 					menu_cell_basic_header_draw(ctx, cell_layer, lang.time_send);	
 				}else{
 					if(settings.wakeup_reason != 1){		//0 = nothing, 1 = text, 2= antw
-						menu_cell_basic_header_draw(ctx, cell_layer, lang.time_reseiv);
+						if(settings.next_id > 3){	//TODO dont write anything when its a info message
+							menu_cell_basic_header_draw(ctx, cell_layer, lang.time_reseiv);
+						}else{
+							menu_cell_basic_header_draw(ctx, cell_layer, "");
+						}
 					}else{
 						menu_cell_basic_header_draw(ctx, cell_layer, lang.time_wait);
 					}

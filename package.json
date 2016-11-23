@@ -4,12 +4,9 @@
     "keywords": [],
     "name": "last_signal",
     "pebble": {
-        "capabilities": [
-            ""
-        ],
         "displayName": "LAST SIGNAL",
         "enableMultiJS": false,
-        "messageKeys": {},
+        "messageKeys": [],
         "projectType": "native",
         "resources": {
             "media": [

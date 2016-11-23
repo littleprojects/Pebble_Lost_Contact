@@ -13,7 +13,7 @@ LANG lang  = {
 	//timeline
 	.time_msg			= "Messages:",
 	.time_send		= "send:",
-	.time_reseiv	= "Tom is writing...",
+	.time_reseiv	= "reseiving data",//"Tom is writing...",
 	.time_wait		= "Wait for Tom",
 	.time_busy		= "Tom is busy.",
 	
