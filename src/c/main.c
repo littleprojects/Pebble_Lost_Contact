@@ -13,18 +13,17 @@
 * wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
 *
 * Specials: 
-	- search id: verbesserung der Startposition (check milestones for a better/faster start point)
 	- error ID hinterlegen
 	- longer time for the next message (like real writing) letters * time = writetime
 	- check nextId -> write time (+ is Id loaded? (check work))
-* - (...) note if Tim is writing
-* - a bigger Font size,
-* - Debug output (IDs) in Game
+  - (...) note if Tim is writing
+  - a bigger Font size,
+  - Debug output (IDs) in Game
 *
 */ //TODO
 
 #define TESTMODE				0			//testmodus the time to next Step is set to 1 min (0 default)
-#define JUMPPOINT				500		//jump to this ID after connect (for quick bugfixing in the storyline) 0(default) = no jump
+#define JUMPPOINT				0		//jump to this ID after connect (for quick bugfixing in the storyline) 0(default) = no jump
 
 #define debug						0			//all debug are default on 0
 #define debug_game			0			//debug for the gameaction function
@@ -262,7 +261,7 @@ void parse_string(uint16_t start ){
 	*/
 }
 
-//durchsuche die Datei  													TODO: verbesserung der Startposition
+//durchsuche die Datei
 bool search_id(uint16_t search_id){
 	bool search = true;
 	bool found 	= false;
@@ -276,15 +275,34 @@ bool search_id(uint16_t search_id){
 	if(search_id >= last_id){
 		//start from last known position
 		pointer = last_pointer;
-		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Set last Pointer");
+		if(debug_parser){
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "start from LAST Pointer");
+		}
 		//pointer = 0;
 	}else{
-		
-		//check andere Bekante IDs (Milestone,...)
-		//TODO: überprüfe bekannte ID für eine besserer Startposition
-		
+			
 		//start from 0
 		pointer = 0;
+		last_id = 0;
+		
+		if(debug_parser){
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "start point = 0 -> search new start point");
+		}
+		
+		//check all Milestones
+		for(int i = 0; i < MAX_MILE_COUNT; i++){
+			//does this milestone exist
+			if(mile[i].id != 0){
+				if(mile[i].id < search_id && mile[i].id > last_id){
+					pointer = mile[i].start;
+					last_id = mile[i].id;
+					
+					if(debug_parser){
+						APP_LOG(APP_LOG_LEVEL_DEBUG, "new start point: %d  id: %d", mile[i].start, mile[i].id);
+					}
+				}
+			}
+		}		
 	}
 	
 	//suche bis zum abbruch
