@@ -5,8 +5,9 @@
 /* TODO
 *
 * TESTEN - SAVE & LOAD data
- 
-* STORY!
+ *
+* STORY!!!!
+*
 *	Dynamische Text lentgh im LINE struct (wenn das möglich ist) ist ja ein Array um speicher zu sparen
 *
 * wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
@@ -15,7 +16,6 @@
 	- search id: verbesserung der Startposition (check milestones for a better/faster start point)
 	- error ID hinterlegen
 	- longer time for the next message (like real writing) letters * time = writetime
-	- milestone kann doppelt in antw geladen werden
 	- check nextId -> write time (+ is Id loaded? (check work))
 * - (...) note if Tim is writing
 * - a bigger Font size,
@@ -24,7 +24,7 @@
 */ //TODO
 
 #define TESTMODE				0			//testmodus the time to next Step is set to 1 min (0 default)
-#define JUMPPOINT				301		//jump to this ID after connect (for quick bugfixing in the storyline) 0(default) = no jump
+#define JUMPPOINT				500		//jump to this ID after connect (for quick bugfixing in the storyline) 0(default) = no jump
 
 #define debug						0			//all debug are default on 0
 #define debug_game			0			//debug for the gameaction function
@@ -128,8 +128,8 @@ static Layer 			*s_info_layer;
 static AppTimer 	*s_timer;
 
 //images
-static GBitmap 		*s_background_image;
-static BitmapLayer *s_background_layer;
+static GBitmap 			*s_background_image;
+static BitmapLayer 	*s_background_layer;
 
 #if PBL_ROUND 
 static GPathInfo path_1 = { .num_points = 8,.points = (GPoint []) {	{20,10},{25,5}, {155,5},{160,10}, {160,18+19},{155,18+24}, {25,18+24},{20,18+19}} };
@@ -165,7 +165,7 @@ typedef struct {
 	
 	uint8_t   active_text_count;				
   uint8_t   active_antw_count;
-	uint16_t 	next_id;								//pointer of the next Step	
+	uint16_t 	next_id;								//ID of the next Step	(0 = STOP)
 	
 	uint8_t		wakeup_reason;								//save the wakeup reason (0= nichts, 1= incomming Msg, 2= waiting for answer)
 	MenuIndex	menu_index;								//save the current position in the timeline
@@ -263,10 +263,15 @@ void parse_string(uint16_t start ){
 }
 
 //durchsuche die Datei  													TODO: verbesserung der Startposition
-bool search_id(uint search_id){
+bool search_id(uint16_t search_id){
 	bool search = true;
 	bool found 	= false;
 	old_pointer = 1;
+	
+	//cancel if id 0
+	if(search_id == 0){
+		return false;
+	}
 	
 	if(search_id >= last_id){
 		//start from last known position
@@ -274,8 +279,9 @@ bool search_id(uint search_id){
 		//APP_LOG(APP_LOG_LEVEL_DEBUG, "Set last Pointer");
 		//pointer = 0;
 	}else{
+		
 		//check andere Bekante IDs (Milestone,...)
-		//ToDO: überprüfe bekannte ID für eine besserer Startposition
+		//TODO: überprüfe bekannte ID für eine besserer Startposition
 		
 		//start from 0
 		pointer = 0;
@@ -767,9 +773,9 @@ static void addAllAntw(uint16_t id){
 
 static void setNextId(uint16_t id){
 	
-	if(id == 0){
-		id = 1;
-	}
+	//if(id == 0){
+	//	id = 1;
+	//}
 	
 	settings.next_id = id;
 }
@@ -1006,7 +1012,7 @@ void game_action(void *data){
 				//go_on = false;
 				if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "BUSY for %d min", work.special);} 
 			break;			
-//MILESTONE
+//MILESTONE	add a Milestone the Milestone menu
 			case MILESTONE:
 				setNextId(work.next_id);	//set next step and go on
 				addMilestone();				//save this milestone
@@ -1040,6 +1046,7 @@ void game_action(void *data){
 				//work.text[strlen(lang.time_busy)] = 10;
 				*/
 				addAntw();
+				setNextId(0);
 			
 				wakeup_cancel_all();
 				update_menu = true;
@@ -1049,6 +1056,7 @@ void game_action(void *data){
 			case END:
 
 				//settings.next_step = NULL;
+				setNextId(0);
 				go_on = false;
 
 				//cancel all wakeup
@@ -2258,7 +2266,7 @@ static void init(void) {
 		
 		if(settings.next_id > 0 && settings.active_text_count == 0){
 			
-			if(settings.next_id <= 1){ 		//first run
+			if(settings.next_id == 1){ 		//first run
 				if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "PUSH Welcome window... (FIRST RUN)");}
 			
 				wakeup_cancel_all();
