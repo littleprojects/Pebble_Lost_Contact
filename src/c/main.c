@@ -920,7 +920,7 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					window_stack_push(s_welc_window, true);
 				break;
 				*/
-				case 4:	//Milestone
+				case 3:	//Milestone
 					//show milestones
 					#if PBL_ROUND
 						window_stack_push(s_mile_window, false);	
@@ -1067,7 +1067,7 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
 					menu_cell_basic_draw(ctx, cell_layer, "Restart", NULL, NULL);	//"start from 0"
 				break;
 				*/
-				case 4:
+				case 3:
 					menu_cell_basic_draw(ctx, cell_layer, "Milestones", NULL, NULL);	//"go back in time"
 				break;
 			}
