@@ -4,7 +4,7 @@
 LANG lang  = {
 	//welcome page
 	.name = "LAST SIGNAL\nMoonbase",
-	.desc =	"Save Tom!\n\nTom is in trouble and only YOU can help him!\n\nYou are his last remaining connection. Help him with the right decisions and secure his survival!\n",
+	.desc =	"Save Tom!\n\nTom is in trouble and only YOU can help him!\n\nYou are his last remaining connection. Help him with the right decisions and secure his survival!\n\n----------\n\nCreated by David Lenk",
 	
 	//info page
 	.text_wait 		= "Tom waits for a response.",	

@@ -2,7 +2,7 @@
     "author": "David Lenk",
     "dependencies": {},
     "keywords": [],
-    "name": "last_signal",
+    "name": "last-signal",
     "pebble": {
         "displayName": "LAST SIGNAL",
         "enableMultiJS": false,
@@ -35,7 +35,8 @@
                     "targetPlatforms": [
                         "aplite",
                         "basalt",
-                        "chalk"
+                        "chalk",
+                        "diorite"
                     ],
                     "type": "bitmap"
                 },
@@ -45,7 +46,8 @@
                     "targetPlatforms": [
                         "aplite",
                         "basalt",
-                        "chalk"
+                        "chalk",
+                        "diorite"
                     ],
                     "type": "bitmap"
                 },
@@ -55,7 +57,8 @@
                     "targetPlatforms": [
                         "aplite",
                         "basalt",
-                        "chalk"
+                        "chalk",
+                        "diorite"
                     ],
                     "type": "bitmap"
                 }
@@ -64,12 +67,13 @@
         "sdkVersion": "3",
         "targetPlatforms": [
             "aplite",
-            "basalt"
+            "basalt",
+            "diorite"
         ],
         "uuid": "1d6c7f01-d948-42a6-aa4e-b2084210ebbc",
         "watchapp": {
             "watchface": false
         }
     },
-    "version": "0.94.0"
+    "version": "1.0.0"
 }

@@ -4,21 +4,24 @@
 
 /* TODO
 *
-* TESTEN - SAVE & LOAD data
- *
 * STORY!!!!
 *
 *	Dynamische Text lentgh im LINE struct (wenn das möglich ist) ist ja ein Array um speicher zu sparen
 *
 * wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
 *
-* Specials: 
-	- error ID hinterlegen
+* Specials:
+	- Hint website 
+	
+	- idle/rest Time anpassung
+	- error = ID hinterlegen/anzeigen (Debug active)
 	- longer time for the next message (like real writing) letters * time = writetime
+	
 	- check nextId -> write time (+ is Id loaded? (check work))
   - (...) note if Tim is writing
-  - a bigger Font size,
-  - Debug output (IDs) in Game
+	
+  - a bigger Font size optimieren
+	- emery anpassung (alles größer)
 *
 */ //TODO
 
@@ -33,7 +36,7 @@
 #define debug_settings  0
 #define debug_timeline	0
 
-#define FCT_SAVE				1			//enable(1 default) oder disable (0) the save (to persitend) function
+#define FCT_SAVE				1			//enable(1 default) oder disable (0) the save seetings (to persitend) function
 
 #define MAX_TEXT_COUNT 	20
 #define MAX_ANTW_COUNT 	2
@@ -42,7 +45,7 @@
 #define MAX_ALIVES			1
 #define MAX_DEADS				3
 
-#define DEFAULT_DELAY		3			//secound between the messages
+#define DEFAULT_DELAY		3			//sec  between the messages
 
 //Parser Settings
 #define MAX_TEXT_LEN		100
@@ -149,7 +152,13 @@ static GPath *s_path_2;
 static GPath *s_path_3;
 static GPath *s_path_4;
 static GPath *s_path_5;
-
+/*
+static GPath *s_path_b1;
+static GPath *s_path_b2;
+static GPath *s_path_b3;
+static GPath *s_path_b4;
+static GPath *s_path_b5;
+*/
 //settings && savegame
 typedef struct save_line{
 	uint16_t start;
@@ -196,7 +205,7 @@ SETTINGS settings = {
 	.vibe = true,
 	.rapid_mode = false,
 	.sleep_time = true,
-	.font = 0,
+	.font = 0,						//font default 0, 1 = bigger		
 	
 	//history
 	//.mile = {0},
@@ -945,7 +954,6 @@ void load_settings() {
 
 // ------------------------------------ Game Main Function ----------------
 
-//TODO
 void game_action(void *data){
 	//Jumppoint, just for debuging
 	if(JUMPPOINT > 0){
@@ -1247,25 +1255,33 @@ static int16_t 	menu_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *
 	switch (cell_index->section) {
     case 0:			//erste Section (Nachrichten)		
 			if(debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> text id %d", text[cell_index->row].id);}
-			return text[cell_index->row].hight +26;	
+			if(settings.font == 0){
+				return text[cell_index->row].hight +26;	//normal text
+			}else{
+				return text[cell_index->row].hight +38;	//bigger text
+			}
 		break;
 		case 1:		//zweite Section (Antworten)
 			if(debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> antw id %d", antw[cell_index->row].id);}
-			return antw[cell_index->row].hight +26;
+			if(settings.font == 0){
+				return text[cell_index->row].hight +26;	
+			}else{
+				return text[cell_index->row].hight +45;
+			}
 		break;
 		default: return 0;
 	}
 	//return 50; //test ouput
 }
 
-static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
+static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {	//TODO (FONT SIZE)
  
 	if(debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "draw row");}
 
 	LINE *line;
 	
-	GFont font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_24));
-	GPath *s_path = s_path_1;
+	GFont font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_24));	//normal font (small or gig)
+	GPath *s_path = (settings.font == 0 ? s_path_1 : s_path_1);
 	
 	graphics_context_set_fill_color(ctx, timeline_box_fill_color);
   graphics_context_set_stroke_color(ctx, timeline_box_border_color);
@@ -1279,13 +1295,20 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			line = &text[cell_index->row];
 		
 			if(line->typ == INFO || line->typ == ANTW){
-				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
+				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));	//bold font (small or big)
 			}
 		
-			if(line->hight > 18){s_path = s_path_2;}
-			if(line->hight > 36){s_path = s_path_3;}
-			if(line->hight > 54){s_path = s_path_4;}
-			if(line->hight > 72){s_path = s_path_5;}	
+			//if(settings.font == 0){ //rects for normal font
+				if(line->hight > 18){s_path = s_path_2;}
+				if(line->hight > 36){s_path = s_path_3;}
+				if(line->hight > 54){s_path = s_path_4;}
+				if(line->hight > 72){s_path = s_path_5;}
+			/*}else{	//rects for bigger font
+				if(line->hight > 24){s_path = s_path_b2;}
+				if(line->hight > 48){s_path = s_path_b3;}
+				if(line->hight > 72){s_path = s_path_b4;}
+				if(line->hight > 92){s_path = s_path_b5;}				
+			}*/
 		
 			//draw background
 			#ifdef PBL_COLOR
@@ -1297,9 +1320,9 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 				(char*)line->text,
 				font,
 				#if PBL_ROUND
-					GRect(25, 12, 130, 100), 
+					(settings.font == 0 ? GRect(25, 12, 130, 100) : GRect(25, 15, 130, 100)), 
 				#else
-					GRect(8, 12, 128, 100), 
+					(settings.font == 0 ? GRect(8, 12, 128, 100) : GRect(8, 12, 128, 100)), 
 				#endif
 				GTextOverflowModeWordWrap, 
 				GTextAlignmentCenter, 
@@ -1311,14 +1334,21 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			line = &antw[cell_index->row];
 		
 			if(line->typ == INFO || line->typ == ANTW){
-				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));
+				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));	//bold font (small or big)
 			}
 		
-			if(line->hight > 18){s_path = s_path_2;}
-			if(line->hight > 36){s_path = s_path_3;}
-			if(line->hight > 54){s_path = s_path_4;}
-			if(line->hight > 72){s_path = s_path_5;}
-			
+			//if(settings.font == 0){	//rects for normal font 
+				if(line->hight > 18){s_path = s_path_2;}
+				if(line->hight > 36){s_path = s_path_3;}
+				if(line->hight > 54){s_path = s_path_4;}
+				if(line->hight > 72){s_path = s_path_5;}
+			/*}else{	//rects for bigger font
+				if(line->hight > 24){s_path = s_path_b2;}
+				if(line->hight > 48){s_path = s_path_b3;}
+				if(line->hight > 72){s_path = s_path_b4;}
+				if(line->hight > 96){s_path = s_path_b5;}				
+			}*/
+						
 			//highlight selected row
 			if(menu_cell_layer_is_highlighted(cell_layer)){
 				#ifdef PBL_COLOR
@@ -1349,7 +1379,7 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 				#if PBL_ROUND
 					GRect(25, 12, 130, 100), 
 				#else
-					GRect(8, 12, 128, 100), 
+					(settings.font == 0 ? GRect(8, 12, 128, 100) : GRect(10, 13, 128, 100)), 
 				#endif 
 				GTextOverflowModeWordWrap, 
 				GTextAlignmentCenter, 
@@ -1368,7 +1398,14 @@ static void 		main_window_load(Window *window) {
 	s_path_3 = gpath_create(&path_3);
 	s_path_4 = gpath_create(&path_4);		//4 line border
 	s_path_5 = gpath_create(&path_5);
-	
+	/*
+	//and for the fat text lines
+	s_path_b1 = gpath_create(&path_b1);		//1 line border
+	s_path_b2 = gpath_create(&path_b2);
+	s_path_b3 = gpath_create(&path_b3);
+	s_path_b4 = gpath_create(&path_b4);		//4 line border
+	s_path_b5 = gpath_create(&path_b5);
+	*/
 	//s_background_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BG_1);
 	
   // Now we prepare to initialize the menu layer
@@ -1459,13 +1496,14 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 				case 2:	//Ruhezeit
 					settings.sleep_time = !settings.sleep_time;
 					menu_layer_reload_data(menu_layer);
-				break;
-				/*
+				break;				
 				case 3:	//fontsize
 					settings.font = (settings.font == 0 ? 1 : 0);
-					menu_layer_reload_data(menu_layer);
-				break;
-				*/
+					//menu_layer_reload_data(menu_layer);		//update the settings menu
+					//menu_layer_reload_data(s_menu_layer);	//update the story menu
+					window_stack_pop_all(false);						//reload the game_menu
+					window_stack_push(s_main_window, PBL_IF_ROUND_ELSE(false, true));	
+				break;				
 				/*
 				case 3:	//neustart
 					setNextStep(0);
@@ -1477,7 +1515,7 @@ static void 		set_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, 
 					window_stack_push(s_welc_window, true);
 				break;
 				*/
-				case 3:	//Milestone
+				case 4:	//Milestone
 					//show milestones
 					window_stack_push(s_mile_window, PBL_IF_ROUND_ELSE(false, true));	
 				break;
@@ -1555,7 +1593,7 @@ static uint16_t set_get_num_rows_callback(MenuLayer *menu_layer, uint16_t sectio
   switch (section_index) {
     case 0:			
 			//settings
-			return 4;
+			return 5;
     case 1:
 			//achievments
       return 2;
@@ -1607,17 +1645,17 @@ static void 		set_draw_row_callback(GContext* ctx, const Layer *cell_layer, Menu
 				case 2:
 					menu_cell_basic_draw(ctx, cell_layer, lang.set_rest_time, (settings.sleep_time ? "22:00-8:00" : lang.off), NULL);
 				break;
-				/*
+				
 				case 3:
 					menu_cell_basic_draw(ctx, cell_layer, "Font size", (settings.font == 0 ? "default" : "+1"), NULL);
 				break;
-				*/
+				
 				/*
 				case 3:
 					menu_cell_basic_draw(ctx, cell_layer, "Restart", NULL, NULL);	//"start from 0"
 				break;
 				*/
-				case 3:
+				case 4:
 					menu_cell_basic_draw(ctx, cell_layer, lang.set_milestone, NULL, NULL);	//"go back in time"
 				break;
 			}
