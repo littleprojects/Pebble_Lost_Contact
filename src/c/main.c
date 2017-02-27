@@ -10,12 +10,15 @@
 *
 * wakeup reason (ist jetzt unsigned 0-2) vielleicht als enum (NO,new_message,waiting)
 *
+*	Error handling. If ID is not found at his position (reload a app with a new story line) Version controll in savegame with unic id (date+Time of build)
+*
 * Specials:
 	- Hint website 
 	
 	- idle/rest Time anpassung
 	- error = ID hinterlegen/anzeigen (Debug active)
 	- longer time for the next message (like real writing) letters * time = writetime
+		- read next line to calc the waiting time to this line
 	
 	- check nextId -> write time (+ is Id loaded? (check work))
   - (...) note if Tim is writing
@@ -809,7 +812,6 @@ static void setNextId(uint16_t id){
 
 //-------------------------------- save - load settings -------------------
 
-//TODO - CHECK this function
 void save_settings() {		
 	//write the current Lines (text, antw & mile) the the save_line in the setting (start, id)
 	//Text Lines
@@ -858,7 +860,7 @@ void save_settings() {
 	if(debug_save){APP_LOG(APP_LOG_LEVEL_DEBUG, "SAVED %d bytes", (int)sizeof(settings));}
 }
 
-//TODO - CHECK - restore the WORK LINES (text, antw & mile) from the settings data (start, id)
+//TODO - CHECK - restore the WORK LINES (text, antw & mile) from the settings data (START, id) - Error handling when the start point is changed on version change
 void load_settings() {  
 	
 	if(FCT_SAVE)
@@ -969,7 +971,7 @@ void game_action(void *data){
 	if(!search_id(settings.next_id)){
 		//Id not found
 		if(debug_game){APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: ID %d not found", settings.next_id);}	
-															 
+		APP_LOG(APP_LOG_LEVEL_DEBUG, " ----- ERROR: ID %d not found -----", settings.next_id);													 
 		//errorhandling
 		return;
 	}else{
@@ -1262,11 +1264,11 @@ static int16_t 	menu_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *
 			}
 		break;
 		case 1:		//zweite Section (Antworten)
-			if(debug_timeline){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> antw id %d", antw[cell_index->row].id);}
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "--> antw id %d; height %d", antw[cell_index->row].id, antw[cell_index->row].hight);}
 			if(settings.font == 0){
-				return text[cell_index->row].hight +26;	
+				return antw[cell_index->row].hight +26;	
 			}else{
-				return text[cell_index->row].hight +45;
+				return antw[cell_index->row].hight +45;
 			}
 		break;
 		default: return 0;
@@ -1303,6 +1305,7 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 				if(line->hight > 36){s_path = s_path_3;}
 				if(line->hight > 54){s_path = s_path_4;}
 				if(line->hight > 72){s_path = s_path_5;}
+				//if(line->hight > 90){s_path = s_path_6;}
 			/*}else{	//rects for bigger font
 				if(line->hight > 24){s_path = s_path_b2;}
 				if(line->hight > 48){s_path = s_path_b3;}
@@ -1336,7 +1339,8 @@ static void 		menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, Men
 			if(line->typ == INFO || line->typ == ANTW){
 				font = fonts_get_system_font((settings.font == 0 ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_24_BOLD));	//bold font (small or big)
 			}
-		
+			
+			if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "LINE HEIGHT: %d", line->hight);}
 			//if(settings.font == 0){	//rects for normal font 
 				if(line->hight > 18){s_path = s_path_2;}
 				if(line->hight > 36){s_path = s_path_3;}
@@ -2234,7 +2238,8 @@ static void init(void) {
 	if(debug){APP_LOG(APP_LOG_LEVEL_DEBUG, "Free heap: %d", (int)heap_bytes_free());}
 	
 	//set resource handle
-	rh = resource_get_handle(RESOURCE_ID_STORY_EN);
+	//rh = resource_get_handle(RESOURCE_ID_STORY_EN);
+	rh = resource_get_handle(RESOURCE_ID_STORY2_EN);
 	//rh = resource_get_handle(RESOURCE_ID_TEST);
 	//set filesize
 	filesize = resource_size(rh);

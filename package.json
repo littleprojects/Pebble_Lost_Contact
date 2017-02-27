@@ -11,6 +11,12 @@
         "resources": {
             "media": [
                 {
+                    "file": "data/2story_en.story",
+                    "name": "STORY2_EN",
+                    "targetPlatforms": null,
+                    "type": "raw"
+                },
+                {
                     "file": "data/test.story",
                     "name": "TEST",
                     "targetPlatforms": null,
